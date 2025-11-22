@@ -162,8 +162,8 @@ LOGGING = {
 # ------------------------------------------------------------
 # Optional: expose keys to your views (they already read from env)
 # ------------------------------------------------------------
-# GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyBmvg0y6hTHVmys_jzUUZcou2fbtndkMf4")
-# OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+# 
+
 
 
 
