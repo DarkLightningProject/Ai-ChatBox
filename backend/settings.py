@@ -25,7 +25,7 @@ SECRET_KEY = os.getenv(
 
 DEBUG = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost","https://ai-chatbox1-4ecb.onrender.com","https://ai-chatbox-6sey.onrender.com"]
 
 # ------------------------------------------------------------
 # Apps
@@ -159,7 +159,12 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "INFO"},
 }
 
-
+#DEPLOYEMNT
+CORS_ALLOWED_ORIGINS = [
+    "https://ai-chatbox1-4ecb.onrender.com",
+    "https://ai-chatbox-6sey.onrender.com",
+]
+CORS_ALLOW_ALL_ORIGINS = False
 
 
 
