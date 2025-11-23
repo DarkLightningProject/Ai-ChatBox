@@ -7,6 +7,7 @@ import "./styles/variables.css";
 import "./styles/layout.css";
 import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 
+console.log("API_BASE =", process.env.REACT_APP_API_BASE);
 
 function upsertSessions(list, item) {
   const i = list.findIndex(s => s.session_id === item.session_id);
@@ -184,7 +185,7 @@ const handleNewSession = async () => {
   // fetch sessions
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await axios.get("http://localhost:8000/api/sessions/", {
+      const res = await axios.get(`${API_BASE}/api/sessions/`, {
         params: { mode },
       });
       setSessions(res.data);

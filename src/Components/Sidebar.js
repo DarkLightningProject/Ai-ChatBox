@@ -3,10 +3,12 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "../styles/layout.css";
 
+
+ const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
 const SessionTitle = memo(function SessionTitle({ title, justRenamed, onDoubleClick }) {
   const [displayedText, setDisplayedText] = useState(title || "");
   const [typing, setTyping] = useState(false);
-
+ 
   const timeoutRef = useRef(null);
   const runTokenRef = useRef(0);
   const prevTitleRef = useRef(title);
@@ -89,8 +91,8 @@ function Sidebar({
   const deleteSession = async (session_id) => {
     try {
       await axios.delete(
-        `http://localhost:8000/api/sessions/${session_id}/delete/`
-      );
+  `${API_BASE}/api/sessions/${session_id}/delete/`
+);
       onDeleted?.(session_id);
       setMenuOpen(null);
     } catch (err) {
@@ -102,9 +104,9 @@ function Sidebar({
     if (!editTitle.trim()) return;
     try {
       await axios.put(
-        `http://localhost:8000/api/sessions/${session_id}/rename/`,
-        { title: editTitle }
-      );
+  `${API_BASE}/api/sessions/${session_id}/rename/`,
+  { title: editTitle }
+);
       onRenamed?.(session_id, editTitle);
       setMenuOpen(null);
     } catch (err) {

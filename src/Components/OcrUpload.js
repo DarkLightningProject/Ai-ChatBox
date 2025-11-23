@@ -6,6 +6,7 @@ export default function OcrUpload({ sessionId, mode = "ocr", onOcrText }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
 
   const pick = () => inputRef.current?.click();
 
@@ -22,9 +23,11 @@ export default function OcrUpload({ sessionId, mode = "ocr", onOcrText }) {
       if (sessionId) fd.append("session_id", sessionId);
       fd.append("mode", mode);
 
-      const { data } = await axios.post("http://localhost:8000/api/ocr/", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const { data } = await axios.post(
+  `${API_BASE}/api/ocr/`,
+  fd,
+  { headers: { "Content-Type": "multipart/form-data" } }
+);
 
       // show in chat
       onOcrText?.(data.text, data.session_id);
