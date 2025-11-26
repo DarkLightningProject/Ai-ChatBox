@@ -221,22 +221,19 @@ const handleNewSession = async () => {
       )}
 
       <main className={`chat-pane ${theme}-theme`}>
-        <button
-          className="mobile-menu-btn"
-          onClick={() => setSidebarOpen((o) => !o)}
-        >
-          ☰ Menu
-        </button>
+       
 
         <ChatApp
-        key={`${sessionId || 'blank'}:${mode}`}
-          sessionId={sessionId}
-          mode={mode}
-          theme={theme}
-          setSessionId={(id) => navigate(`/chat/${id}`)}
-          onSessionTitled={handleSessionTitled}
-          onSessionCreated={handleSessionCreated}
-        />
+  key={`${sessionId || "blank"}:${mode}`}
+  sessionId={sessionId}
+  mode={mode}
+  theme={theme}
+  setSessionId={(id) => navigate(`/chat/${id}`)}
+  onSessionTitled={handleSessionTitled}
+  onSessionCreated={handleSessionCreated}
+  toggleSidebar={() => setSidebarOpen((o) => !o)}   // ONLY this one
+/>
+
       </main>
     </div>
   );

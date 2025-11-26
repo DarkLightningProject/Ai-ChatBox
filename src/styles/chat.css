@@ -160,7 +160,7 @@
 }
 
 /* MOBILE STYLES - Only apply below 768px */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .chat-history {
     padding: 10px 12px;
     gap: 12px;

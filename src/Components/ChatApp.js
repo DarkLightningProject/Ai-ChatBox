@@ -168,7 +168,7 @@ const DEFAULT_OCR_QUESTION =
   "Give a concise summary and extract key values (important dates, totals, names, addresses, emails, phone numbers).";
 
 /* =========================== Component =========================== */
-export default function ChatApp({ sessionId, mode, setSessionId, theme,onSessionTitled,onSessionCreated, }) {
+export default function ChatApp({ sessionId, mode, setSessionId, theme,onSessionTitled,onSessionCreated,toggleSidebar  }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [queuedImages, setQueuedImages] = useState([]); // local queue (before send)
@@ -524,7 +524,17 @@ if (res.data.title) {
 
   /* ------------------------ Render ----------------------- */
   return (
+    
     <div className={`chat-wrap ${theme}-theme`} aria-busy={loading}>
+        {/* Mobile Menu Button (scrolls with content) */}
+        
+      <button
+        className="mobile-menu-btn"
+        onClick={() => toggleSidebar?.()}
+      >
+        ☰ Menu
+      </button>
+
       <header className="chat-header">
         <div className="chat-pill">
           {mode === "uncensored"
@@ -642,17 +652,7 @@ if (res.data.title) {
             </div>
           </div>
         ))}
-
-        {loading && (
-          <div className="typing" role="status" aria-live="assertive">
-            <div className="typing-indicator">
-              <span></span><span></span><span></span>
-            </div>
-          </div>
-        )}
-      </section>
-
-      <footer className="chat-inputbar">
+<footer className="chat-inputbar">
         <textarea
           ref={textareaRef}
           value={input}
@@ -685,6 +685,17 @@ if (res.data.title) {
           </svg>
         </button>
       </footer>
+        {loading && (
+          <div className="typing" role="status" aria-live="assertive">
+            <div className="typing-indicator">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        )}
+      </section>
+
+      
     </div>
+    
   );
 }
