@@ -24,6 +24,7 @@ from openai import APIStatusError, APIError
 from .models import Message, ChatSession
 import google.generativeai as genai
 from openai import OpenAI as OpenAIClient
+from cloudinary.utils import cloudinary_url
  
 # ================================
 # Clients & Model IDs
@@ -414,44 +415,74 @@ class OcrQaView(APIView):
             return Response({"error": f"OCR-QA server error: {e}"}, status=500)
 
 
+import os
+import uuid
+import tempfile
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+from django.core.files.base import ContentFile
+
+from .models import Message
+from .utils import _ensure_session, _update_title_if_empty  # adjust if needed
+
+import google.generativeai as genai
+import cloudinary.uploader
+
+
 @csrf_exempt
 @require_POST
 def gemini_with_images(request):
     try:
-        message = (request.POST.get('message') or '').strip() or 'Analyze these images'
-        session_id = request.POST.get('session_id')
-        mode = request.POST.get('mode', 'ocr')
+        # -----------------------------
+        # Basic request data
+        # -----------------------------
+        message = (request.POST.get("message") or "").strip() or "Analyze these images"
+        session_id = request.POST.get("session_id")
+        mode = request.POST.get("mode", "ocr")
 
         # Ensure session exists
         session_id = _ensure_session(session_id, mode)
 
-        # up to 4 images
-        images = request.FILES.getlist('images')[:4]
+        # -----------------------------
+        # Images (max 4)
+        # -----------------------------
+        images = request.FILES.getlist("images")[:4]
         if not images:
-            return JsonResponse({'error': 'No images provided'}, status=400)
+            return JsonResponse({"error": "No images provided"}, status=400)
 
-        # Persist files to MEDIA storage and also prep for Gemini upload
-        saved_attachments = []   # for DB + response
-        uploads_for_gemini = []  # gemini uploaded-file handles
+        saved_attachments = []      # sent to frontend + stored in DB
+        uploads_for_gemini = []     # Gemini file handles
 
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
         for image_file in images:
-            # read into memory once
+            # Read image once
             data = image_file.read()
-            ext = os.path.splitext(image_file.name)[1] or ".bin"
-            safe_name = f"uploads/{uuid.uuid4().hex}{ext}"
+            ext = os.path.splitext(image_file.name)[1] or ".png"
 
-            # Save to Django's default storage (MEDIA_ROOT)
-            stored_path = default_storage.save(safe_name, ContentFile(data))
-            media_url = default_storage.url(stored_path)
+            # -----------------------------
+            # ✅ Upload to Cloudinary (IMPORTANT)
+            # -----------------------------
+            upload_result = cloudinary.uploader.upload(
+                data,
+                folder="uploads",
+                resource_type="image",
+            )
+
+            cloudinary_url = upload_result["secure_url"]  # FULL HTTPS URL
 
             saved_attachments.append({
-    "url": media_url,
-    "name": image_file.name,
-    "mime": image_file.content_type or "application/octet-stream",
-})
-            # Also prepare a temp file for Gemini upload
+                "url": cloudinary_url,  # ✅ THIS FIXES YOUR 404
+                "name": image_file.name,
+                "mime": image_file.content_type or "application/octet-stream",
+            })
+
+            # -----------------------------
+            # Gemini upload (temp file)
+            # -----------------------------
             with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
                 tmp.write(data)
                 tmp_path = tmp.name
@@ -459,14 +490,17 @@ def gemini_with_images(request):
             uploaded = genai.upload_file(tmp_path)
             uploads_for_gemini.append(uploaded)
 
-            # cleanup temp
             os.unlink(tmp_path)
 
-        # Ask Gemini with prompt + uploaded images
+        # -----------------------------
+        # Ask Gemini
+        # -----------------------------
         response = model.generate_content([message, *uploads_for_gemini])
         answer_text = (getattr(response, "text", "") or "").strip()
 
-        # Save BOTH user message (with attachments) and assistant message to this session
+        # -----------------------------
+        # Save messages
+        # -----------------------------
         Message.objects.create(
             role="user",
             content=message,
@@ -483,17 +517,20 @@ def gemini_with_images(request):
             attachments=[],
         )
 
-        # Update title if empty
         _update_title_if_empty(session_id, message)
 
-        # Return the content + the attachments
+        # -----------------------------
+        # Response to frontend
+        # -----------------------------
         return JsonResponse({
             "response": answer_text,
             "session_id": session_id,
-            "attachments": saved_attachments
+            "attachments": saved_attachments,
         })
+
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
+
     
 from rest_framework.decorators import api_view
 

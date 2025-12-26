@@ -133,11 +133,14 @@ USE_CLOUDINARY = bool(os.getenv("CLOUDINARY_URL"))
 if USE_CLOUDINARY:
     # ✅ Production (Cloudinary)
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-
+    CLOUDINARY_STORAGE = {
+        
+        "MEDIA_FOLDER": "uploads",
+    }
 else:
-    # ✅ Local development (disk)
-    MEDIA_URL = "/media/"
-    MEDIA_ROOT = BASE_DIR / "media"
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+
+
 
 # -------------------------
 # Default primary key
