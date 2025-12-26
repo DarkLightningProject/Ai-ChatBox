@@ -447,12 +447,10 @@ def gemini_with_images(request):
             media_url = default_storage.url(stored_path)
 
             saved_attachments.append({
-                "url": media_url,
-                "name": image_file.name,
-                "mime": image_file.content_type or "application/octet-stream",
-                "stored_path": stored_path,
-            })
-
+    "url": media_url,
+    "name": image_file.name,
+    "mime": image_file.content_type or "application/octet-stream",
+})
             # Also prepare a temp file for Gemini upload
             with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
                 tmp.write(data)
