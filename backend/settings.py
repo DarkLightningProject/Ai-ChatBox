@@ -16,7 +16,8 @@ load_dotenv(BASE_DIR / ".env")
 # -------------------------
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key")
 
-DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -125,7 +126,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Media / Storage
 # -------------------------
 
-USE_CLOUDINARY = not DEBUG and os.getenv("CLOUDINARY_URL")
+USE_CLOUDINARY = bool(os.getenv("CLOUDINARY_URL"))
+
+
 
 if USE_CLOUDINARY:
     # ✅ Production (Cloudinary)
@@ -186,3 +189,4 @@ LOGGING = {
         "level": "INFO",
     },
 }
+
