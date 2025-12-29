@@ -158,7 +158,7 @@ def logout_view(request):
 @api_view(["POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([AllowAny])   # ✅ PUBLIC ENDPOINT
-@api_view(["POST"])
+
 def reset_password_api(request):
     uidb64 = request.data.get("uid")
     token = request.data.get("token")
