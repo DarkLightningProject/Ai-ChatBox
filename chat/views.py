@@ -43,6 +43,7 @@ import os
 print("🔎 OPENROUTER_API_KEY exists:", bool(os.getenv("OPENROUTER_API_KEY")))
 print("🔎 FRONTEND_URL:", os.getenv("FRONTEND_URL"))
 print("🔎 UNCENSORED_MODEL:", os.getenv("UNCENSORED_MODEL"))
+print("🔎 get_uncensored_client called, key exists:", bool(os.getenv("OPENROUTER_API_KEY")))
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 MISTRAL_BASE_URL = os.getenv("MISTRAL_BASE_URL")
@@ -78,42 +79,58 @@ if not OPENROUTER_API_KEY:
 # =========================
 # OpenRouter Client
 # =========================
-uncensored_client = OpenAIClient(
-    api_key=OPENROUTER_API_KEY,
-    base_url="https://openrouter.ai/api/v1",
-    default_headers={
-        "Referer": FRONTEND_URL,   # REQUIRED by OpenRouter
-        "X-Title": "AI Chatbox",
-    },
-)
+def get_uncensored_client():
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY missing at runtime")
+
+    return OpenAIClient(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+        default_headers={
+            "Referer": frontend_url,   # REQUIRED by OpenRouter
+            "X-Title": "AI Chatbox",
+        },
+    )
 # =========================
 # Chat Function
 # =========================
 def uncensored_chat(messages):
     try:
-        response = uncensored_client.chat.completions.create(
-            model=UNCENSORED_MODEL,
-            messages=messages,
+        client = get_uncensored_client()
 
-            # 🔥 refusal-avoidance tuning
+        response = client.chat.completions.create(
+            model=os.getenv(
+                "UNCENSORED_MODEL",
+                "cognitivecomputations/dolphin-mistral-24b-venice-edition"
+            ),
+            messages=messages,
             temperature=1.1,
             top_p=0.95,
             frequency_penalty=0.2,
-            presence_penalty=0.0,
-
             max_tokens=2048,
-            timeout=60,
+            timeout=90,
         )
 
         return response.choices[0].message.content
 
     except Exception as e:
-        print("❌ Uncensored chat error:", str(e))
-        return "⚠️ The uncensored model is temporarily unavailable."
-
+        print("❌ Uncensored chat error:", repr(e))
+        return "⚠️ Uncensored model is temporarily unavailable."
 # --- Gemini ONLY for OCR flows ---
 
+def chat_view(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+
+    data = json.loads(request.body)
+    messages = data.get("messages", [])
+
+    reply = uncensored_chat(messages)
+
+    return JsonResponse({"reply": reply})
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL")
