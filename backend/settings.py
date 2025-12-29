@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
     "chat",
     "accounts",
+    "anymail"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -200,14 +201,15 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
 }
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
-EMAIL_HOST_USER = os.getenv("SMTP_EMAIL")
-EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+ANYMAIL = {
+    "BREVO_API_KEY": os.getenv("BREVO_API_KEY"),
+}
+
+DEFAULT_FROM_EMAIL = "eclipsexautomationsolution@gmail.com"
+
+
 
 
 SESSION_COOKIE_HTTPONLY = True
