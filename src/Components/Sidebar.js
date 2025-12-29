@@ -167,7 +167,7 @@ const [settingsOpen, setSettingsOpen] = useState(false);
     className={`mode-select ${theme}-theme`}
   >
     <option value="regular">🤖 Regular (API)</option>
-    <option value="uncensored">🔥 Uncensored (Local)</option>
+    <option value="uncensored">🔥 Uncensored</option>
     <option value="ocr">📄 OCR (Gemini)</option>
   </select>
 
