@@ -78,6 +78,7 @@ def uncensored_chat(messages):
     response = uncensored_client.chat.completions.create(
         model=UNCENSORED_MODEL,
         messages=messages,
+        timeout=60
     )
     return response.choices[0].message.content
 
