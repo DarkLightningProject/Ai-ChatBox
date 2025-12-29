@@ -57,18 +57,27 @@ mistral_client = OpenAIClient(
 import os
 from openai import OpenAI as OpenAIClient
 
-# ✅ Read directly from environment
+# =========================
+# Environment Variables
+# =========================
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
 UNCENSORED_MODEL = os.getenv(
     "UNCENSORED_MODEL",
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition"
 )
+
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
-# ❗ Safety check (important)
+# =========================
+# Safety Check
+# =========================
 if not OPENROUTER_API_KEY:
     raise RuntimeError("OPENROUTER_API_KEY is not set")
 
+# =========================
+# OpenRouter Client
+# =========================
 uncensored_client = OpenAIClient(
     api_key=OPENROUTER_API_KEY,
     base_url="https://openrouter.ai/api/v1",
@@ -78,13 +87,30 @@ uncensored_client = OpenAIClient(
     },
 )
 
+# =========================
+# Chat Function
+# =========================
 def uncensored_chat(messages):
-    response = uncensored_client.chat.completions.create(
-        model=UNCENSORED_MODEL,
-        messages=messages,
-        timeout=60
-    )
-    return response.choices[0].message.content
+    try:
+        response = uncensored_client.chat.completions.create(
+            model=UNCENSORED_MODEL,
+            messages=messages,
+
+            # 🔥 refusal-avoidance tuning
+            temperature=1.1,
+            top_p=0.95,
+            frequency_penalty=0.2,
+            presence_penalty=0.0,
+
+            max_tokens=2048,
+            timeout=60,
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print("❌ Uncensored chat error:", str(e))
+        return "⚠️ The uncensored model is temporarily unavailable."
 
 # --- Gemini ONLY for OCR flows ---
 
