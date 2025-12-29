@@ -38,7 +38,11 @@ from django.core.exceptions import PermissionDenied
 # ================================
 
 # --- Mistral for REGULAR mode ---
+import os
 
+print("🔎 OPENROUTER_API_KEY exists:", bool(os.getenv("OPENROUTER_API_KEY")))
+print("🔎 FRONTEND_URL:", os.getenv("FRONTEND_URL"))
+print("🔎 UNCENSORED_MODEL:", os.getenv("UNCENSORED_MODEL"))
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 MISTRAL_BASE_URL = os.getenv("MISTRAL_BASE_URL")
