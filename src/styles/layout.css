@@ -739,7 +739,149 @@ body {
   50% { background: transparent; }
 }
 
+/* ---------- Settings Panel ---------- */
 
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-panel {
+  width: 420px;
+  max-width: 92%;
+  background: var(--panel);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 50px rgba(0,0,0,.45);
+  animation: scaleIn 0.2s ease;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.settings-section {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section h4 {
+  font-size: 13px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.settings-item {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-item:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.settings-section.danger h4 {
+  color: var(--danger);
+}
+
+.settings-item.danger {
+  color: var(--danger);
+}
+
+.settings-item.danger:hover {
+  background: rgba(255, 107, 107, 0.12);
+  border-color: var(--danger);
+}
+
+
+.icon-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+/* ---------- Delete Confirmation Modal ---------- */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-modal {
+  width: 420px;
+  max-width: 92%;
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 50px rgba(0,0,0,.45);
+  animation: scaleIn 0.18s ease;
+}
+
+.confirm-modal h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.confirm-modal p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.confirm-actions .btn.danger {
+  background: linear-gradient(180deg, var(--danger), #e5533d);
+  border: none;
+  color: white;
+}
 
 
 

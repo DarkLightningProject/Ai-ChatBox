@@ -1,6 +1,8 @@
 // src/Components/ChatApp.js
 import React, { useEffect, useRef, useState } from "react";
-import axios from "axios";
+import api from "../api";
+ // adjust path
+
 import "../styles/chat.css";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -187,7 +189,7 @@ export default function ChatApp({ sessionId, mode, setSessionId, theme,onSession
     const sid = sidOverride || sessionId;
     setLoading(true);
     try {
-      const { data } = await axios.post(`${API_BASE}/api/ocr-qa/`, {
+      const { data } = await api.post(`/api/ocr-qa/`, {
         session_id: sid || undefined,
         question,
         mode: "ocr",
@@ -267,8 +269,8 @@ useEffect(() => {
   if (!sessionId) return;
   const ctrl = new AbortController();
 
-  axios
-    .get(`${API_BASE}/api/history/`, {
+  api
+    .get(`/api/history/`, {
       // If your backend now returns ALL messages in a session, this is enough:
       params: { session_id: sessionId, mode },
       signal: ctrl.signal,
@@ -311,7 +313,7 @@ useEffect(() => {
       setMessages(cleaned);
     })
     .catch((err) => {
-      if (axios.isCancel?.(err)) return;
+      if (api.isCancel?.(err)) return;
       console.error("Failed to load history:", err);
     });
 
@@ -352,11 +354,16 @@ useEffect(() => {
         fd.append("mode", "ocr");
         queuedImages.forEach((f) => fd.append("images", f));
 
-        const { data } = await axios.post(
-          `${API_BASE}/api/gemini-with-images/`,
-          fd,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
+        const { data } = await api.post(
+  "/api/gemini-with-images/",
+  fd,
+  {
+    withCredentials: true,
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  }
+);
 
       if (data.session_id && data.session_id !== sessionId) {
   const newId = data.session_id;
@@ -434,16 +441,20 @@ if (data.title) {
     const idem = makeIdemKey(sessionId, raw);
 
     try {
-      const res = await axios.post(
-        `${API_BASE}/api/chat/`,
-        {
-          message: enhanced,
-          mode,
-          session_id: sessionId || undefined,
-        },
-        { headers: { "Idempotency-Key": idem } }
-      );
-
+       const res = await api.post(
+  "/api/chat/",
+  {
+    message: enhanced,
+    mode,
+    session_id: sessionId || undefined,
+  },
+  {
+    withCredentials: true,
+    headers: {
+      "Idempotency-Key": idem,
+    },
+  }
+);
       if (res.data.session_id && res.data.session_id !== sessionId) {
   setSessionId(res.data.session_id);
     onSessionCreated?.(res.data.session_id, res.data.title, mode);
@@ -483,15 +494,17 @@ if (res.data.title) {
         // one auto-retry after server-suggested wait
         try {
           await new Promise((r) => setTimeout(r, wait));
-          const res2 = await axios.post(
-            `${API_BASE}/api/chat/`,
-            {
-              message: enhanced,
-              mode,
-              session_id: sessionId || undefined,
-            },
-            { headers: { "Idempotency-Key": idem + ":r1" } }
-          );
+          const res2 = await api.post(
+  "/api/chat/",
+  {
+    message: enhanced,
+    mode,
+    session_id: sessionId || undefined,
+  },
+  {
+    headers: { "Idempotency-Key": idem },
+  }
+);
           const processedText2 = processTableResponse(
             res2.data.response,
             looksComparative(raw)

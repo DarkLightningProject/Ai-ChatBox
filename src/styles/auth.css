@@ -1,0 +1,194 @@
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+}
+
+.auth-card {
+  background: #f2eded;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 14px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+  animation: fadeIn 0.5s ease;
+}
+
+.auth-card h2 {
+  text-align: center;
+  margin-bottom: 0.3rem;
+  color: #111 !important;    
+}
+
+.subtitle {
+  text-align: center;
+  color: #080707;
+  margin-bottom: 1.5rem;
+}
+
+.input-group {
+  margin-bottom: 1rem;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  outline: none;
+  font-size: 15px;
+  transition: border 0.3s, box-shadow 0.3s;
+}
+
+.input-group input:focus {
+  border-color: #2c5364;
+  box-shadow: 0 0 0 2px rgba(44, 83, 100, 0.2);
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 12px;
+  background: #2c5364;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.3s;
+}
+
+.auth-btn:hover {
+  background: #203a43;
+  transform: translateY(-1px);
+}
+
+.error-box {
+  background: #ffe6e6;
+  color: #c0392b;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 14px;
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  font-size: 14px;
+}
+
+.auth-links span {
+  cursor: pointer;
+  color: #2c5364;
+}
+
+.auth-links span:hover {
+  text-decoration: underline;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-box {
+  background: #e9f9f0;
+  color: #1e8449;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 14px;
+}
+
+
+/* =========================
+   📱 MOBILE RESPONSIVENESS
+   ========================= */
+
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 1rem;
+  }
+
+  .auth-card {
+    width: 100%;
+    padding: 1.8rem 1.5rem;
+    border-radius: 12px;
+  }
+.auth-card .subtitle {
+  color: #444 !important;
+}
+  .auth-card h2 {
+font-size: 1.4rem;
+text-align: center;
+  margin-bottom: 0.3rem;
+  color: #111 !important;          /* 👈 ADD THIS */
+  font-weight: 600;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .input-group input {
+    padding: 14px;
+    font-size: 16px; /* prevents iOS zoom */
+  }
+
+  .auth-btn {
+    padding: 14px;
+    font-size: 16px;
+  }
+
+  .auth-links {
+    flex-direction: column;
+    gap: 0.6rem;
+    text-align: center;
+  }
+
+  .error-box {
+    font-size: 14px;
+  }
+}
+
+.password-match {
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.password-match.ok {
+  color: #22c55e;
+}
+
+.password-match.bad {
+  color: #ef4444;
+}
+
+/* Password rules */
+.password-rules {
+  margin: 8px 0 12px;
+  padding-left: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+/* ❌ not satisfied */
+.password-rules li.bad {
+  color: #ef4444 !important; /* red */
+}
+
+/* ✅ satisfied */
+.password-rules li.ok {
+  color: #22c55e !important; /* green */
+}

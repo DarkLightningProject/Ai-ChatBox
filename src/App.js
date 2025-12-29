@@ -1,11 +1,20 @@
 // src/App.js
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+// import axios from "axios";
 import ChatApp from "./Components/ChatApp";
 import Sidebar from "./Components/Sidebar";
 import "./styles/variables.css";
 import "./styles/layout.css";
-import { Routes, Route, useParams, useNavigate } from "react-router-dom";
+import { Routes, Route, useParams, useNavigate,Navigate } from "react-router-dom";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ResetPassword from "./pages/ResetPassword";
+
+import ForgotPassword from "./pages/ForgotPassword";
+import api from "./api";
+
+// import ChatWrapper from "./ChatWrapper";
+
 
 console.log("API_BASE =", process.env.REACT_APP_API_BASE);
 
@@ -147,15 +156,25 @@ const handleSessionTitled = React.useCallback((id, newTitleRaw) => {
 
 const handleNewSession = async () => {
   if (creating) return;
+
   try {
     setCreating(true);
-    const r = await axios.post(`${API_BASE}/api/sessions/new/`, { mode });
-    setSessions(prev =>
-      upsertSessions(prev, { session_id: r.data.session_id, title: "New chat", mode })
+
+    const r = await api.post("/api/sessions/new/", {
+      mode,
+    });
+
+    setSessions((prev) =>
+      upsertSessions(prev, {
+        session_id: r.data.session_id,
+        title: "New chat",
+        mode,
+      })
     );
+
     navigate(`/chat/${r.data.session_id}`);
   } catch (e) {
-    console.error(e);
+    console.error("Failed to create new session:", e);
   } finally {
     setCreating(false);
   }
@@ -184,15 +203,16 @@ const handleNewSession = async () => {
 
   // fetch sessions
   const fetchSessions = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/api/sessions/`, {
-        params: { mode },
-      });
-      setSessions(res.data);
-    } catch (err) {
-      console.error("Failed to fetch sessions:", err);
-    }
-  }, [mode]);
+  try {
+    const res = await api.get("/api/sessions/", {
+      params: { mode },
+    });
+
+    setSessions(res.data);
+  } catch (err) {
+    console.error("Failed to fetch sessions:", err);
+  }
+}, [mode]);
 
   useEffect(() => {
     fetchSessions();
@@ -242,32 +262,52 @@ const handleNewSession = async () => {
 /* -------------------------------
    App
 -------------------------------- */
+/* ---------- Auth Guard ---------- */
+const RequireAuth = ({ children }) => {
+  const user = JSON.parse(localStorage.getItem("user"));
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+};
+
 export default function App() {
   const [mode, setMode] = useState(localStorage.getItem("mode") || "regular");
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
 
   return (
     <Routes>
+      {/* ---------- Auth Routes ---------- */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot" element={<ForgotPassword />} />
+      <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
+
+
+      {/* ---------- Protected Chat Routes ---------- */}
       <Route
         path="/"
         element={
-          <ChatWrapper
-            mode={mode}
-            setMode={setMode}
-            theme={theme}
-            setTheme={setTheme}
-          />
+          <RequireAuth>
+            <ChatWrapper
+              mode={mode}
+              setMode={setMode}
+              theme={theme}
+              setTheme={setTheme}
+            />
+          </RequireAuth>
         }
       />
+
       <Route
         path="/chat/:sessionId"
         element={
-          <ChatWrapper
-            mode={mode}
-            setMode={setMode}
-            theme={theme}
-            setTheme={setTheme}
-          />
+          <RequireAuth>
+            <ChatWrapper
+              mode={mode}
+              setMode={setMode}
+              theme={theme}
+              setTheme={setTheme}
+            />
+          </RequireAuth>
         }
       />
     </Routes>

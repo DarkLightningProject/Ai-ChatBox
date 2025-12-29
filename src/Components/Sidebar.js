@@ -2,6 +2,12 @@ import React, { useState, useEffect, useRef, memo } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "../styles/layout.css";
+import api from "../api";
+import { logout,deleteAccount } from "../api/auth";
+
+ // adjust path
+
+
 
 
  const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
@@ -60,6 +66,8 @@ const SessionTitle = memo(function SessionTitle({ title, justRenamed, onDoubleCl
   );
 }, (prev, next) => prev.title === next.title && prev.justRenamed === next.justRenamed);
 
+
+
 function Sidebar({
   sessions,
   onSessionSelect,
@@ -88,10 +96,22 @@ function Sidebar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleLogout = async () => {
+  try {
+    await logout(); // calls /api/auth/logout/
+  } catch (err) {
+    console.error("Logout failed:", err);
+  } finally {
+    // clear client state
+    localStorage.removeItem("user");
+    navigate("/login");
+  }
+};
+
+
   const deleteSession = async (session_id) => {
     try {
-      await axios.delete(
-  `${API_BASE}/api/sessions/${session_id}/delete/`
+      await api.delete(`/api/sessions/${session_id}/delete/`
 );
       onDeleted?.(session_id);
       setMenuOpen(null);
@@ -103,8 +123,8 @@ function Sidebar({
   const renameSession = async (session_id) => {
     if (!editTitle.trim()) return;
     try {
-      await axios.put(
-  `${API_BASE}/api/sessions/${session_id}/rename/`,
+      await api.put(
+  `/api/sessions/${session_id}/rename/`,
   { title: editTitle }
 );
       onRenamed?.(session_id, editTitle);
@@ -113,6 +133,12 @@ function Sidebar({
       console.error("Failed to rename session:", err);
     }
   };
+const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+const [deleting, setDeleting] = useState(false);
+const [settingsOpen, setSettingsOpen] = useState(false);
+
+
+
 
   return (
     <aside className={`sidebar ${theme}-theme`}>
@@ -124,22 +150,55 @@ function Sidebar({
           <span className="plus">+</span> New Chat
         </button>
 
+        
+
         <div className="controls-row">
-          <div className="control-group">
-            <label className="mode-label" htmlFor="mode">
-              Mode:
-            </label>
-            <select
-              id="mode"
-              value={currentMode}
-              onChange={(e) => onModeChange(e.target.value)}
-              className={`mode-select ${theme}-theme`}
-            >
-              <option value="regular">🤖 Regular (API)</option>
-              <option value="uncensored">🔥 Uncensored (Local)</option>
-              <option value="ocr">📄 OCR (Gemini)</option>
-            </select>
+          
+
+       <div className="control-group">
+  <label className="mode-label" htmlFor="mode">
+    Mode:
+  </label>
+
+  <select
+    id="mode"
+    value={currentMode}
+    onChange={(e) => onModeChange(e.target.value)}
+    className={`mode-select ${theme}-theme`}
+  >
+    <option value="regular">🤖 Regular (API)</option>
+    <option value="uncensored">🔥 Uncensored (Local)</option>
+    <option value="ocr">📄 OCR (Gemini)</option>
+  </select>
+
+  {/* ACTION BUTTONS ROW */}
+  <div className="icon-row">
+    <button
+      className={`icon-btn logout-icon ${theme}-theme`}
+      onClick={handleLogout}
+      title="Logout"
+      aria-label="Logout"
+    >
+      ⏻
+    </button>
+
+    <button
+      className={`icon-btn ${theme}-theme`}
+      onClick={() => setSettingsOpen(true)}
+      title="Settings"
+      aria-label="Settings"
+    >
+      ⚙️
+    </button>
+  </div>
+</div>
+
+ 
+  
+</div>
+
           </div>
+          
           <button
             className={`theme-toggle ${theme}-theme`}
             onClick={toggleTheme}
@@ -147,7 +206,9 @@ function Sidebar({
           >
             {theme === "dark" ? "🌙" : "☀️"}
           </button>
-        </div>
+          
+          
+        <div>
       </div>
 
       <ul className="session-list">
@@ -224,6 +285,103 @@ function Sidebar({
           </li>
         )}
       </ul>
+      {settingsOpen && (
+  <div className="settings-overlay" onClick={() => setSettingsOpen(false)}>
+    <div
+      className="settings-panel"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <header className="settings-header">
+        <h3>Settings</h3>
+        <button
+          className="icon-btn"
+          onClick={() => setSettingsOpen(false)}
+          aria-label="Close"
+        >
+          ✕
+        </button>
+      </header>
+
+      <section className="settings-section">
+        <h4>Account</h4>
+        <button className="settings-item">
+          👤 Profile (coming soon)
+        </button>
+        <button className="settings-item">
+          🔒 Security (coming soon)
+        </button>
+      </section>
+
+      <section className="settings-section danger">
+        <h4>Danger zone</h4>
+        <button
+          className="settings-item danger"
+          onClick={() => {
+    setSettingsOpen(false);
+    setConfirmDeleteOpen(true);
+  }}
+          
+          
+        >
+          🗑️ Delete account
+        </button>
+      </section>
+    </div>
+  </div>
+)}
+{confirmDeleteOpen && (
+  <div
+    className="confirm-overlay"
+    onClick={() => !deleting && setConfirmDeleteOpen(false)}
+  >
+    <div
+      className="confirm-modal"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <h3>Delete account?</h3>
+
+      <p>
+        This will permanently delete your account and all associated data.
+        <br />
+        <strong>This action cannot be undone.</strong>
+      </p>
+
+      <div className="confirm-actions">
+        <button
+          className="btn"
+          type="button"
+          disabled={deleting}
+          onClick={() => setConfirmDeleteOpen(false)}
+        >
+          Cancel
+        </button>
+
+        <button
+          className="btn danger"
+          type="button"
+          disabled={deleting}
+          onClick={async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+              localStorage.removeItem("user");
+              navigate("/login");
+            } catch (err) {
+              console.error(err);
+              alert("Failed to delete account");
+              setDeleting(false);
+            }
+          }}
+        >
+          {deleting ? "Deleting…" : "Delete"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
     </aside>
   );
 }
