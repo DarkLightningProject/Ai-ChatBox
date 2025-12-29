@@ -32,6 +32,7 @@ from cloudinary.utils import cloudinary_url
 from rest_framework.permissions import IsAuthenticated
 from typing import Optional
 from django.core.exceptions import PermissionDenied
+import json
  
 # ================================
 # Clients & Model IDs
@@ -209,10 +210,21 @@ def _mistral_chat_reply(messages: list[dict]) -> str:
     return (r.choices[0].message.content or "").strip()
 
 def _uncensored_chat_reply(messages: list[dict]) -> str:
-    r = uncensored_client.chat.completions.create(
-        model=UNCENSORED_MODEL,
-        messages=messages
+    client = get_uncensored_client()
+
+    r = client.chat.completions.create(
+        model=os.getenv(
+            "UNCENSORED_MODEL",
+            "cognitivecomputations/dolphin-mistral-24b-venice-edition"
+        ),
+        messages=messages,
+        temperature=1.1,
+        top_p=0.95,
+        frequency_penalty=0.2,
+        max_tokens=2048,
+        timeout=90,
     )
+
     return (r.choices[0].message.content or "").strip()
 
 def _gemini_extract_text_from_file(file_path: str, mime_type: Optional[str] = None) -> str:
