@@ -153,11 +153,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # -------------------------
 # Django REST Framework
 # -------------------------
-REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
-    ],
-}
+
 
 # -------------------------
 # CORS / CSRF
@@ -213,6 +209,9 @@ EMAIL_HOST_USER = os.getenv("SMTP_EMAIL")
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
 # 🔐 Auth + Sessions
 if DEBUG:
     # ✅ Local development
@@ -226,8 +225,7 @@ else:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SAMESITE = "None"
     CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = False
+    
 
 # 🔑 CORS
 CORS_ALLOW_CREDENTIALS = True
