@@ -74,8 +74,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 # =========================
 # Safety Check
 # =========================
-if not OPENROUTER_API_KEY:
-    raise RuntimeError("OPENROUTER_API_KEY is not set")
+
 
 # =========================
 # OpenRouter Client
@@ -122,16 +121,7 @@ def uncensored_chat(messages):
         return "⚠️ Uncensored model is temporarily unavailable."
 # --- Gemini ONLY for OCR flows ---
 
-def chat_view(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "POST only"}, status=405)
 
-    data = json.loads(request.body)
-    messages = data.get("messages", [])
-
-    reply = uncensored_chat(messages)
-
-    return JsonResponse({"reply": reply})
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL")
@@ -186,12 +176,7 @@ def _ensure_session(session_id: Optional[str], mode: str, user=None) -> str:
 
     return new_sid
 
-    ChatSession.objects.create(
-        session_id=new_sid,
-        mode=mode,
-        user=user
-    )
-    return new_sid
+    
 
 
 def _update_title_if_empty(session_id: str, user_text: str):
@@ -431,6 +416,8 @@ class ChatView(APIView):
 
             return Response({
                 "response": reply,
+                "reply": reply,
+
                 "session_id": session_id,
                 "title": session.title or "New chat",
             })
