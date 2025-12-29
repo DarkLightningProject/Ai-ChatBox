@@ -2,11 +2,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("chat.urls")),   # <— routes all your API endpoints
     path("api/auth/", include("accounts.urls")),
+     path("", lambda r: JsonResponse({"status": "ok"})),
 ]
 
 # Serve media in dev
