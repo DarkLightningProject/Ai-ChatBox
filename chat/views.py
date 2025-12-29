@@ -66,7 +66,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 UNCENSORED_MODEL = os.getenv(
     "UNCENSORED_MODEL",
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition"
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
 )
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
