@@ -2,4 +2,5 @@ venv/
 venv1/
 .env
 media/
-db.sqlite3
+db.sqlite3/
+uploads/

@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 class ChatSession(models.Model):
     MODE_CHOICES = (
@@ -7,6 +8,13 @@ class ChatSession(models.Model):
         ('ocr', 'OCR'),
     )
     session_id = models.CharField(max_length=64, unique=True, db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="chat_sessions"
+    )
     title = models.CharField(max_length=200, blank=True, null=True)
     mode = models.CharField(max_length=16, choices=MODE_CHOICES, default='regular')
     created_at = models.DateTimeField(auto_now_add=True)

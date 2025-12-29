@@ -14,17 +14,24 @@ from django.core.files.base import ContentFile
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
-
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from openai import APIStatusError, APIError
-
+from django.utils.decorators import method_decorator
 from .models import Message, ChatSession
 import google.generativeai as genai
 from openai import OpenAI as OpenAIClient
 from cloudinary.utils import cloudinary_url
+from rest_framework.permissions import IsAuthenticated
+from typing import Optional
+from django.core.exceptions import PermissionDenied
  
 # ================================
 # Clients & Model IDs
@@ -66,14 +73,54 @@ def _new_session_id(prefix: str = "") -> str:
     sid = str(uuid.uuid4())[:8]
     return f"{prefix}{sid}" if prefix else sid
 
-def _ensure_session(session_id: Optional[str], mode: str) -> str:
+
+def _ensure_session(session_id: Optional[str], mode: str, user=None) -> str:
+    """
+    Ensures a session exists and belongs to the given user.
+    Creates a new session if session_id is None.
+    """
+
+    # ---------------------------
+    # CASE 1: Existing session
+    # ---------------------------
     if session_id:
-        ChatSession.objects.get_or_create(session_id=session_id, defaults={"mode": mode})
-        return session_id
-    prefix = "uncensored-" if mode == "uncensored" else ("ocr-" if mode == "ocr" else "")
+        try:
+            session = ChatSession.objects.get(session_id=session_id)
+        except ChatSession.DoesNotExist:
+            raise PermissionDenied("Session does not exist")
+
+        # 🔐 Ownership check (CRITICAL)
+        if session.user != user:
+            raise PermissionDenied("You do not own this session")
+
+        return session.session_id
+
+    # ---------------------------
+    # CASE 2: Create new session
+    # ---------------------------
+    prefix = (
+        "uncensored-" if mode == "uncensored"
+        else "ocr-" if mode == "ocr"
+        else ""
+    )
+
     new_sid = _new_session_id(prefix)
-    ChatSession.objects.create(session_id=new_sid, mode=mode)
+
+    ChatSession.objects.create(
+        session_id=new_sid,
+        mode=mode,
+        user=user
+    )
+
     return new_sid
+
+    ChatSession.objects.create(
+        session_id=new_sid,
+        mode=mode,
+        user=user
+    )
+    return new_sid
+
 
 def _update_title_if_empty(session_id: str, user_text: str):
     cs = ChatSession.objects.filter(session_id=session_id).first()
@@ -151,11 +198,31 @@ def _with_retries(call_fn, max_attempts=2, base_delay=1.5):
 # API Endpoints
 # =================
 
+from .authentication import CsrfExemptSessionAuthentication
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
 @api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
 def create_session(request):
+    if not request.user.is_authenticated:
+        return Response({"error": "Unauthorized"}, status=401)
+
     mode = request.data.get("mode", "regular")
-    sid = _ensure_session(None, mode)
-    return Response({"session_id": sid, "title": "New chat", "mode": mode}, status=201)
+    sid = _ensure_session(None, mode, user=request.user)
+
+    return Response({
+        "session_id": sid,
+        "title": "New chat",
+        "mode": mode
+    }, status=201)
 
 
 # views.py
@@ -201,66 +268,142 @@ def _with_retries(call_fn, max_attempts=2, base_delay=1.5):
             # non-HTTP client errors
             return Response({"error": f"LLM client error: {e}"}, status=502)
 
+from .authentication import CsrfExemptSessionAuthentication
 class ChatView(APIView):
+    authentication_classes = [CsrfExemptSessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         try:
             mode = request.data.get("mode", "regular")
             user_message = request.data.get("message")
-            if not user_message:
-                return Response({"error": "Message is required"}, status=400)
 
-            session_id = _ensure_session(request.data.get("session_id"), mode)
-            Message.objects.create(role="user", content=user_message,
-                                   session_id=session_id, mode=mode)
+            if not user_message:
+                return Response(
+                    {"error": "Message is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            incoming_session_id = request.data.get("session_id")
+
+            # ✅ STEP 1: validate or create session safely
+            if incoming_session_id:
+                session = ChatSession.objects.filter(
+                    session_id=incoming_session_id,
+                    user=request.user
+                ).first()
+
+                if not session:
+                    return Response(
+                        {"error": "Session not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
+                session_id = session.session_id
+            else:
+                # create a new session for this user
+                session_id = _ensure_session(None, mode, user=request.user)
+                session = ChatSession.objects.get(session_id=session_id)
+
+            # ✅ STEP 2: save user message
+            Message.objects.create(
+                role="user",
+                content=user_message,
+                session_id=session_id,
+                mode=mode,
+            )
+
             _update_title_if_empty(session_id, user_message)
 
-            # short history
-            history_qs = (Message.objects
-                          .filter(session_id=session_id, mode=mode)
-                          .order_by("-timestamp")[:10][::-1])
-            messages = [{"role": m.role, "content": m.content} for m in history_qs]
+            # ✅ STEP 3: short history (unchanged logic)
+            history_qs = (
+                Message.objects
+                .filter(session_id=session_id, mode=mode)
+                .order_by("-timestamp")[:10][::-1]
+            )
+
+            messages = [
+                {"role": m.role, "content": m.content}
+                for m in history_qs
+            ]
 
             def _call():
                 if mode == "uncensored":
                     return _uncensored_chat_reply(messages)
                 return _mistral_chat_reply(messages)
 
-            # ✅ perform call with small backoff + proper status mapping
             result = _with_retries(_call, max_attempts=2)
 
-            # If result is already a DRF Response (e.g., 429), just return it
             if isinstance(result, Response):
                 return result
 
             reply = result
-            Message.objects.create(role="assistant", content=reply,
-                                   session_id=session_id, mode=mode)
 
-            # include current title
-            session = ChatSession.objects.get(session_id=session_id)
+            Message.objects.create(
+                role="assistant",
+                content=reply,
+                session_id=session_id,
+                mode=mode,
+            )
+
             return Response({
                 "response": reply,
                 "session_id": session_id,
-                "title": session.title or "New chat"
+                "title": session.title or "New chat",
             })
+
         except Exception as e:
-            # last-resort safety
-            return Response({"error": f"Server error: {e}"}, status=500)
+            return Response(
+                {"error": f"Server error: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class ChatHistoryView(APIView):
     """
     GET /api/history/?session_id=...&mode=...
-    returns: { history: [{role, content,, attachments}] }
+    returns: { history: [{role, content, attachments, mode}] }
     """
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         session_id = request.query_params.get("session_id")
         mode = request.query_params.get("mode", "regular")
-        if not session_id:
-            return Response({"error": "session_id required"}, status=400)
 
-        messages = Message.objects.filter(session_id=session_id,mode=mode).order_by("timestamp")
-        history = [{"role": m.role, "content": m.content, "attachments": getattr(m, "attachments",[]),"mode": getattr(m, "mode", "regular"),} for m in messages]
+        if not session_id:
+            return Response(
+                {"error": "session_id required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ SECURITY CHECK (does NOT affect old data)
+        session = ChatSession.objects.filter(
+            session_id=session_id,
+            user=request.user
+        ).first()
+
+        if not session:
+            return Response(
+                {"error": "Not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ✅ Existing logic preserved
+        messages = Message.objects.filter(
+            session_id=session_id,
+            mode=mode
+        ).order_by("timestamp")
+
+        history = [
+            {
+                "role": m.role,
+                "content": m.content,
+                "attachments": m.attachments or [],
+                "mode": m.mode,
+            }
+            for m in messages
+        ]
+
         return Response({"history": history})
 
 
@@ -271,7 +414,8 @@ def list_sessions(request):
     returns: [{ session_id, title, mode, last_time }]
     """
     mode = request.query_params.get("mode")
-    qs = ChatSession.objects.all()
+    qs = ChatSession.objects.filter(user=request.user)
+
     if mode:
         qs = qs.filter(mode=mode)
 
@@ -290,34 +434,104 @@ def list_sessions(request):
     return Response(data)
 
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .authentication import CsrfExemptSessionAuthentication
+from .models import ChatSession, Message
+from .authentication import CsrfExemptSessionAuthentication
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .models import ChatSession, Message
+
+
 @api_view(["DELETE"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+
+@permission_classes([IsAuthenticated])
 def delete_session(request, session_id):
     """
     DELETE /api/sessions/<session_id>/
+    Only deletes sessions owned by the logged-in user
     """
+    session = ChatSession.objects.filter(
+        session_id=session_id,
+        user=request.user
+    ).first()
+
+    if not session:
+        return Response(
+            {"error": "Session not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # delete messages first
     Message.objects.filter(session_id=session_id).delete()
-    ChatSession.objects.filter(session_id=session_id).delete()
-    return Response({"deleted": session_id})
+
+    # delete session
+    session.delete()
+
+    return Response(
+        {"deleted": session_id},
+        status=status.HTTP_200_OK
+    )
+
+
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
+import tempfile, os
 
 
 class OcrUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+
     """
-    POST /api/ocr/    (multipart/form-data)
-      file: image/pdf/txt
-      session_id?: keep same OCR session
-      mode: "ocr" (ignored if not provided)
+    POST /api/ocr/
+    file: image/pdf/txt
+    session_id?: keep same OCR session
     returns: { text, session_id }
     """
+
     def post(self, request):
         try:
             fileobj = request.FILES.get("file")
             if not fileobj:
-                return Response({"error": "No file uploaded"}, status=400)
+                return Response(
+                    {"error": "No file uploaded"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # ensure an OCR session
-            session_id = _ensure_session(request.data.get("session_id"), "ocr")
+            incoming_session_id = request.data.get("session_id")
 
-            # Save temp file
+            # 🔐 Validate or create session (USER-SCOPED)
+            if incoming_session_id:
+                session = ChatSession.objects.filter(
+                    session_id=incoming_session_id,
+                    user=request.user,
+                    mode="ocr"
+                ).first()
+
+                if not session:
+                    return Response(
+                        {"error": "Session not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
+                session_id = session.session_id
+            else:
+                session_id = _ensure_session(None, "ocr", user=request.user)
+
+            # ---------- Save temp file ----------
             if isinstance(fileobj, InMemoryUploadedFile):
                 with tempfile.NamedTemporaryFile(delete=False) as tmp:
                     for chunk in fileobj.chunks():
@@ -331,15 +545,20 @@ class OcrUploadView(APIView):
                         tmp.write(chunk)
                     temp_path = tmp.name
 
-            # MIME hint
             mime = fileobj.content_type or None
 
             if not GOOGLE_API_KEY:
-                return Response({"error": "GOOGLE_API_KEY not configured on server"}, status=500)
+                return Response(
+                    {"error": "GOOGLE_API_KEY not configured"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
-            extracted_text = _gemini_extract_text_from_file(temp_path, mime_type=mime)
+            extracted_text = _gemini_extract_text_from_file(
+                temp_path,
+                mime_type=mime
+            )
 
-            # Store the extracted text as a 'system' message in OCR mode
+            # ---------- Save OCR text ----------
             Message.objects.create(
                 role="system",
                 content=extracted_text,
@@ -347,38 +566,82 @@ class OcrUploadView(APIView):
                 mode="ocr"
             )
 
-            # Clean up temp file
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
-            return Response({"text": extracted_text, "session_id": session_id})
+            return Response(
+                {
+                    "text": extracted_text,
+                    "session_id": session_id
+                },
+                status=status.HTTP_200_OK
+            )
+
         except Exception as e:
-            return Response({"error": f"OCR server error: {e}"}, status=500)
+            return Response(
+                {"error": f"OCR server error: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
 
 
 class OcrQaView(APIView):
+    authentication_classes = [CsrfExemptSessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
     """
     POST /api/ocr-qa/
-      JSON: { session_id?: string, question: string, mode: "ocr" }
-    Behavior:
-      - If the session has OCR text (latest system msg), answer ONLY from that text.
-      - If no OCR text yet, answer the question generally (no doc context).
-    returns: { answer, session_id, source: "document"|"general" }
+    JSON: { session_id?: string, question: string }
+    returns: { answer, session_id, source }
     """
+
     def post(self, request):
         try:
             question = (request.data.get("question") or "").strip()
-            session_id = _ensure_session(request.data.get("session_id"), "ocr")
+            incoming_session_id = request.data.get("session_id")
 
             if not question:
-                return Response({"error": "question is required"}, status=400)
+                return Response(
+                    {"error": "question is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             if not GOOGLE_API_KEY:
-                return Response({"error": "GOOGLE_API_KEY not configured on server"}, status=500)
+                return Response(
+                    {"error": "GOOGLE_API_KEY not configured"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
-            # Try to find the latest OCR text for this session
+            # 🔐 Validate or create session (USER-SCOPED)
+            if incoming_session_id:
+                session = ChatSession.objects.filter(
+                    session_id=incoming_session_id,
+                    user=request.user,
+                    mode="ocr"
+                ).first()
+
+                if not session:
+                    return Response(
+                        {"error": "Session not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
+                session_id = session.session_id
+            else:
+                session_id = _ensure_session(None, "ocr", user=request.user)
+
+            # ---------- Fetch latest OCR text ----------
             ocr_msg = (
-                Message.objects.filter(session_id=session_id, mode="ocr", role="system")
+                Message.objects.filter(
+                    session_id=session_id,
+                    mode="ocr",
+                    role="system"
+                )
                 .order_by("-timestamp")
                 .first()
             )
@@ -386,17 +649,16 @@ class OcrQaView(APIView):
             model = genai.GenerativeModel(GEMINI_TEXT_MODEL)
 
             if ocr_msg:
-                # Answer strictly from the document text
                 prompt = (
                     "You are given the raw text extracted from a document.\n"
                     "Answer the user's question using ONLY this text. "
                     "If the answer is not in the text, say 'Not found in the document.'\n\n"
-                    f"--- DOCUMENT TEXT START ---\n{ocr_msg.content}\n--- DOCUMENT TEXT END ---\n\n"
+                    f"--- DOCUMENT TEXT START ---\n{ocr_msg.content}\n"
+                    f"--- DOCUMENT TEXT END ---\n\n"
                     f"User question: {question}\n"
                 )
                 source = "document"
             else:
-                # No OCR uploaded yet -> general answer
                 prompt = (
                     "Answer the user's question helpfully and concisely.\n\n"
                     f"User question: {question}\n"
@@ -406,13 +668,36 @@ class OcrQaView(APIView):
             resp = model.generate_content(prompt)
             answer = (resp.text or "").strip()
 
-            # Save Q/A in OCR session history so UI shows it
-            Message.objects.create(role="user", content=question, session_id=session_id, mode="ocr")
-            Message.objects.create(role="assistant", content=answer, session_id=session_id, mode="ocr")
+            # ---------- Save Q/A ----------
+            Message.objects.create(
+                role="user",
+                content=question,
+                session_id=session_id,
+                mode="ocr"
+            )
 
-            return Response({"answer": answer, "session_id": session_id, "source": source})
+            Message.objects.create(
+                role="assistant",
+                content=answer,
+                session_id=session_id,
+                mode="ocr"
+            )
+
+            return Response(
+                {
+                    "answer": answer,
+                    "session_id": session_id,
+                    "source": source
+                },
+                status=status.HTTP_200_OK
+            )
+
         except Exception as e:
-            return Response({"error": f"OCR-QA server error: {e}"}, status=500)
+            return Response(
+                {"error": f"OCR-QA server error: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 
 import os
@@ -533,8 +818,12 @@ def gemini_with_images(request):
 
     
 from rest_framework.decorators import api_view
+from rest_framework.decorators import authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 @api_view(["PUT"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
 def rename_session(request, session_id):
     """PUT /api/sessions/<session_id>/  {title: "..."}"""
     try:

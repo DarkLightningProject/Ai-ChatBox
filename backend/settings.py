@@ -45,7 +45,10 @@ INSTALLED_APPS = [
     "cloudinary_storage",
 
     "chat",
+    "accounts",
 ]
+
+CORS_ALLOW_CREDENTIALS = True
 
 # -------------------------
 # Middleware
@@ -54,6 +57,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -192,4 +196,34 @@ LOGGING = {
         "level": "INFO",
     },
 }
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = os.getenv("SMTP_EMAIL")
+EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# 🔐 Auth + Sessions
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"   # IMPORTANT for localhost
+SESSION_COOKIE_SECURE = False     # MUST be False for localhost
+
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = False
+
+# 🔑 CORS
+CORS_ALLOW_CREDENTIALS = True
+
 
