@@ -477,12 +477,15 @@ if (res.data.title) {
 
 
 
-      const processedText = processTableResponse(
-        res.data.response,
-        looksComparative(raw)
-      );
+const botText = res.data.reply || res.data.response;
 
-      setMessages((prev) => [...prev, { sender: "bot", text: processedText }]);
+const processedText = processTableResponse(
+  botText,
+  looksComparative(raw)
+);
+
+setMessages((prev) => [...prev, { sender: "bot", text: processedText }]);
+
     } catch (err) {
       const status = err.response?.status;
       if (status === 429) {
@@ -505,11 +508,14 @@ if (res.data.title) {
     headers: { "Idempotency-Key": idem },
   }
 );
-          const processedText2 = processTableResponse(
-            res2.data.response,
-            looksComparative(raw)
-          );
-          setMessages((prev) => [...prev, { sender: "bot", text: processedText2 }]);
+         const botText2 = res2.data.reply || res2.data.response;
+
+const processedText2 = processTableResponse(
+  botText2,
+  looksComparative(raw)
+);
+
+setMessages((prev) => [...prev, { sender: "bot", text: processedText2 }]);
           setLoading(false);
           return;
         } catch (err2) {
