@@ -212,8 +212,8 @@ DEFAULT_FROM_EMAIL = "eclipsexautomationsolution@gmail.com"
 
 
 
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = False
+# SESSION_COOKIE_HTTPONLY = True
+# CSRF_COOKIE_HTTPONLY = False
 # 🔐 Auth + Sessions
 if DEBUG:
     # ✅ Local development
