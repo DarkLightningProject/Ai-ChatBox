@@ -146,8 +146,8 @@ def _ensure_session(session_id: Optional[str], mode: str, user=None) -> str:
         except ChatSession.DoesNotExist:
             raise PermissionDenied("Session does not exist")
 
-        # 🔐 Ownership check (CRITICAL)
-        if session.user != user:
+        # 🔐 Ownership check (only if user is authenticated)
+        if user and session.user and session.user != user:
             raise PermissionDenied("You do not own this session")
 
         return session.session_id
@@ -786,15 +786,27 @@ import cloudinary.uploader
 @require_POST
 def gemini_with_images(request):
     try:
-        # -----------------------------
-        # Basic request data
-        # -----------------------------
         message = (request.POST.get("message") or "").strip() or "Analyze these images"
         session_id = request.POST.get("session_id")
         mode = request.POST.get("mode", "ocr")
+        user = request.user if request.user.is_authenticated else None
 
-        # Ensure session exists
-        session_id = _ensure_session(session_id, mode)
+        # Validate or create session
+        if session_id:
+            filters = {"session_id": session_id, "mode": "ocr"}
+            if user:
+                filters["user"] = user
+            else:
+                filters["user__isnull"] = True
+            
+            session = ChatSession.objects.filter(**filters).first()
+            if not session:
+                # Session doesn't exist or doesn't belong to user, create new one
+                session_id = _ensure_session(None, mode, user=user)
+            else:
+                session_id = session.session_id
+        else:
+            session_id = _ensure_session(None, mode, user=user)
 
         # -----------------------------
         # Images (max 4)
