@@ -1,11 +1,11 @@
 // src/Components/ChatApp.js
 import React, { useEffect, useRef, useState } from "react";
 import api from "../api";
- // adjust path
-
 import "../styles/chat.css";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 /* ----------------------- Small helpers ----------------------- */
 const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
@@ -179,6 +179,7 @@ export default function ChatApp({ sessionId, mode, setSessionId, theme,onSession
   const textareaRef = useRef(null);
   const lastUserRef = useRef("");
   const [zoomSrc, setZoomSrc] = useState(null);
+  const [copiedIndex, setCopiedIndex] = useState(null);
 
 
   // Guards against React 18 StrictMode double-effect
@@ -627,6 +628,42 @@ setMessages((prev) => [...prev, { sender: "bot", text: processedText2 }]);
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
+                  code: ({ node, inline, className, children, ...props }) => {
+                    const match = /language-(\w+)/.exec(className || "");
+                    const language = match ? match[1] : '';
+                    const codeString = String(children).replace(/\n$/, "");
+                    
+                    return !inline && match ? (
+                      <div className="code-block">
+                        <div className="code-header">
+                          <span className="code-language">{language}</span>
+                          <button
+                            className="code-copy-btn"
+                            onClick={() => {
+                              navigator.clipboard.writeText(codeString);
+                            }}
+                          >
+                            📋 Copy
+                          </button>
+                        </div>
+                        <SyntaxHighlighter
+                          language={language}
+                          style={vscDarkPlus}
+                          customStyle={{
+                            margin: 0,
+                            borderRadius: 0,
+                            background: '#1e1e1e'
+                          }}
+                        >
+                          {codeString}
+                        </SyntaxHighlighter>
+                      </div>
+                    ) : (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
                   a: ({ children, ...props }) => (
                     <a {...props} target="_blank" rel="noopener noreferrer">
                       {children}
@@ -669,6 +706,19 @@ setMessages((prev) => [...prev, { sender: "bot", text: processedText2 }]);
                 {m.text || ""}
               </ReactMarkdown>
             </div>
+            {m.sender === "bot" && (
+              <button
+                className={`copy-btn-outside ${copiedIndex === i ? 'copied' : ''}`}
+                onClick={() => {
+                  navigator.clipboard.writeText(m.text || "");
+                  setCopiedIndex(i);
+                  setTimeout(() => setCopiedIndex(null), 2000);
+                }}
+                title="Copy message"
+              >
+                {copiedIndex === i ? "✓" : "📋"}
+              </button>
+            )}
           </div>
         ))}
 <footer className="chat-inputbar">
