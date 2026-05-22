@@ -252,7 +252,7 @@ function getActiveBan(bans, mode, tier) {
   return null;
 }
 
-export default function ChatApp({ sessionId, fallbackSessionId, mode, setSessionId, theme, isPremium = false, bans, onBanDetected, onSessionTitled, onSessionCreated, toggleSidebar }) {
+export default function ChatApp({ sessionId, fallbackSessionId, mode, setSessionId, theme, isPremium = false, bans, onBanDetected, onSessionTitled, onSessionCreated, toggleSidebar, emailVerified = true }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -274,8 +274,12 @@ export default function ChatApp({ sessionId, fallbackSessionId, mode, setSession
   // Active ban for this mode (full_account OR mode-specific)
   const activeBan = getActiveBan(bans, mode, debugTier);
 
-  const [emailNotVerified, setEmailNotVerified] = useState(false);
+  const [emailNotVerified, setEmailNotVerified] = useState(!emailVerified);
   const [resendState, setResendState] = useState("idle"); // idle | sending | sent | failed
+
+  useEffect(() => {
+    if (emailVerified) setEmailNotVerified(false);
+  }, [emailVerified]);
 
   const handleEmailNotVerified = (err) => {
     if (err.response?.status === 403 && err.response?.data?.error === "email_not_verified") {

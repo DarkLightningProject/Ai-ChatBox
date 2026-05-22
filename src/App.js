@@ -32,7 +32,7 @@ const clamp = (s, n = 60) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
    - Manages sidebar, sessions, and chat
 -------------------------------- */
 function ChatWrapper({ mode, setMode, theme, setTheme, initialData }) {
-  const { isPremium, bans: serverBans } = useUserStatus(initialData);
+  const { isPremium, bans: serverBans, emailVerified } = useUserStatus(initialData);
   // localBans merges in any 403-banned responses received mid-session
   const [localBans, setLocalBans] = useState({});
   const bans = { ...serverBans, ...localBans };
@@ -282,6 +282,7 @@ const handleNewSession = async () => {
             onSessionTitled={handleSessionTitled}
             onSessionCreated={handleSessionCreated}
             toggleSidebar={() => setSidebarOpen((o) => !o)}
+            emailVerified={emailVerified}
           />
         </main>
       </div>
@@ -324,14 +325,16 @@ function useUserStatus(initialData) {
   // Seed state from the data already fetched by RequireAuth — no extra request.
   const [isPremium, setIsPremium] = useState(initialData?.is_premium === true);
   const [bans, setBans] = useState(initialData?.bans || {});
+  const [emailVerified, setEmailVerified] = useState(initialData?.email_verified === true);
 
-  // Keep in sync if the user upgrades/gets banned mid-session (periodic refresh).
+  // Keep in sync if the user upgrades/gets banned/verified mid-session (periodic refresh).
   useEffect(() => {
     const refresh = () => {
       api.get("/api/auth/me/").then(res => {
         localStorage.setItem("user", JSON.stringify(res.data));
         setIsPremium(res.data.is_premium === true);
         setBans(res.data.bans || {});
+        setEmailVerified(res.data.email_verified === true);
       }).catch(() => {});
     };
     // Re-fetch every 5 minutes in the background to pick up admin changes.
@@ -339,7 +342,7 @@ function useUserStatus(initialData) {
     return () => clearInterval(id);
   }, []);
 
-  return { isPremium, bans };
+  return { isPremium, bans, emailVerified };
 }
 
 export default function App() {
