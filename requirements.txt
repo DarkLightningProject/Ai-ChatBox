@@ -53,5 +53,4 @@ uritemplate==4.2.0
 urllib3==2.5.0
 whitenoise==6.11.0
 anthropic==0.86.0
-razorpay==1.4.2
-setuptools
+razorpay==2.0.1
