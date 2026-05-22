@@ -1,0 +1,76 @@
+.premium-gate {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.premium-gate-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 8px;
+}
+
+.premium-gate-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 12px;
+  padding: 2rem 2.5rem;
+  text-align: center;
+  max-width: 340px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.premium-gate-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.premium-gate-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+  color: var(--text, #111);
+}
+
+.premium-gate-card p {
+  color: var(--text-muted, #666);
+  font-size: 0.9rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
+.premium-gate-btn {
+  padding: 0.7rem 1.75rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.premium-gate-btn:hover {
+  background: #1d4ed8;
+}
+
+/* Dark theme */
+.dark-theme .premium-gate-card {
+  background: var(--surface, #1e1e2e);
+  border-color: var(--border, #333);
+}
+
+.dark-theme .premium-gate-card h3 {
+  color: var(--text, #f0f0f0);
+}

@@ -1,7 +1,9 @@
 import axios from "axios";
 
-
-
+const getCsrfToken = () =>
+  document.cookie.split("; ")
+    .find((row) => row.startsWith("csrftoken="))
+    ?.split("=")[1] || "";
 
 
 const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
@@ -25,10 +27,15 @@ export const logout = () =>
   axios.post(
     `${API_BASE}/api/auth/logout/`,
     {},
-    { withCredentials: true }
+    { withCredentials: true, headers: { "X-CSRFToken": getCsrfToken() } }
   );
 
 export const deleteAccount = () =>
   axios.delete(`${API_BASE}/api/auth/delete-account/`, {
+    withCredentials: true,
+  });
+
+export const verifyEmail = (uid, token) =>
+  axios.get(`${API_BASE}/api/auth/verify-email/${uid}/${token}/`, {
     withCredentials: true,
   });

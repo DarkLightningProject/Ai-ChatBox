@@ -11,6 +11,8 @@ export default function Signup() {
   });
 
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
 
   /* ---------- Password rules ---------- */
@@ -19,7 +21,7 @@ export default function Signup() {
     { test: /[A-Z]/, label: "One uppercase letter" },
     { test: /[a-z]/, label: "One lowercase letter" },
     { test: /[0-9]/, label: "One number" },
-    { test: /[!@#$%^&*(),.?\":{}|<>]/, label: "One special character" },
+    { test: /[!@#$%^&*(),.?":{}|<>]/, label: "One special character" },
   ];
 
   const isStrongPassword = passwordRules.every((r) =>
@@ -38,11 +40,33 @@ export default function Signup() {
 
     try {
       await signup(form);
-      navigate("/login");
+      setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.error || "Signup failed");
     }
   };
+
+  if (success) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card" style={{ textAlign: "center" }}>
+          <div className="verify-icon verify-icon--success">✓</div>
+          <h2>Account Created!</h2>
+          <p className="subtitle">
+            A verification link has been sent to <strong>{form.email}</strong>.
+            <br />Please check your inbox and click the link to activate your account.
+          </p>
+          <button
+            className="auth-btn"
+            style={{ marginTop: "1.25rem" }}
+            onClick={() => navigate("/login")}
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-container">
@@ -80,9 +104,9 @@ export default function Signup() {
           </div>
 
           {/* Password */}
-          <div className="input-group">
+          <div className="input-group password-group">
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={form.password}
               onChange={(e) =>
@@ -90,6 +114,9 @@ export default function Signup() {
               }
               required
             />
+            <button type="button" className="eye-btn" onClick={() => setShowPassword(p => !p)}>
+              {showPassword ? "Hide" : "Show"}
+            </button>
           </div>
 
           {/* Password rules */}

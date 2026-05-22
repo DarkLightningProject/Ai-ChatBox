@@ -1,4 +1,14 @@
-// OcrUpload.js (drop-in upgrade)
+// =============================================================
+// ⚠️  UNUSED / DEAD CODE — NOT IMPORTED ANYWHERE IN THE APP
+// -------------------------------------------------------------
+// This component was built for a standalone file-upload OCR flow
+// (uploads a file → backend extracts text via Gemini → returns text).
+// The current app uses a different flow:
+//   • Image uploads  → ImagePicker (ChatApp.js) → /api/gemini-with-images/
+//   • Text questions → askOcr()   (ChatApp.js) → /api/ocr-qa/
+// Keep this file if you plan to re-introduce the separate file-upload
+// OCR feature in the future. Otherwise it can be safely deleted.
+// =============================================================
 import React, { useRef, useState } from "react";
 import axios from "axios";
 
@@ -26,7 +36,7 @@ export default function OcrUpload({ sessionId, mode = "ocr", onOcrText }) {
       const { data } = await axios.post(
   `${API_BASE}/api/ocr/`,
   fd,
-  { headers: { "Content-Type": "multipart/form-data" } }
+  { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } }
 );
 
       // show in chat

@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useRef, memo } from "react";
-import axios from "axios";
+import { useState, useEffect, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/layout.css";
 import api from "../api";
 import { logout,deleteAccount } from "../api/auth";
-
- // adjust path
-
+import ProfileModal from "./ProfileModal";
 
 
 
- const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
+
 const SessionTitle = memo(function SessionTitle({ title, justRenamed, onDoubleClick }) {
   const [displayedText, setDisplayedText] = useState(title || "");
   const [typing, setTyping] = useState(false);
@@ -68,6 +65,14 @@ const SessionTitle = memo(function SessionTitle({ title, justRenamed, onDoubleCl
 
 
 
+const PREMIUM_MODES = new Set([]); // no mode is fully locked — only premium tier inside Multi-Debugger
+
+// Returns true if bans dict indicates this mode (or full_account) is banned
+function isModeInBans(bans, modeKey) {
+  if (!bans) return false;
+  return !!(bans["full_account"] || bans[modeKey]);
+}
+
 function Sidebar({
   sessions,
   onSessionSelect,
@@ -79,6 +84,8 @@ function Sidebar({
   onRenamed,
   theme,
   toggleTheme,
+  isPremium = false,
+  bans = {},
 }) {
   const [menuOpen, setMenuOpen] = useState(null);
   const [editTitle, setEditTitle] = useState("");
@@ -136,6 +143,14 @@ function Sidebar({
 const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 const [deleting, setDeleting] = useState(false);
 const [settingsOpen, setSettingsOpen] = useState(false);
+const [profileOpen, setProfileOpen] = useState(false);
+const [modelNames, setModelNames] = useState({ mistral: "Mistral", gemini: "Gemini" });
+
+useEffect(() => {
+  api.get("/api/models/")
+    .then(res => setModelNames(res.data))
+    .catch(() => {}); // non-critical — fallback labels stay
+}, []);
 
 
 
@@ -160,16 +175,63 @@ const [settingsOpen, setSettingsOpen] = useState(false);
     Mode:
   </label>
 
+  {/* Top-level category: Regular encompasses both Mistral and Gemini models */}
   <select
     id="mode"
-    value={currentMode}
-    onChange={(e) => onModeChange(e.target.value)}
+    value={(currentMode === "regular" || currentMode === "ocr") ? "regular" : currentMode}
+    onChange={(e) => {
+      const val = e.target.value;
+      if (PREMIUM_MODES.has(val) && !isPremium) {
+        navigate("/checkout");
+        return;
+      }
+      if (val === "regular") {
+        // Switching into Regular category — default to Mistral unless already in it
+        if (currentMode !== "regular" && currentMode !== "ocr") {
+          onModeChange("regular");
+        }
+        return;
+      }
+      if (isModeInBans(bans, val)) return;
+      onModeChange(val);
+    }}
     className={`mode-select ${theme}-theme`}
   >
-    <option value="regular">🤖 Regular (API)</option>
-    <option value="uncensored">🔥 Uncensored</option>
-    <option value="ocr">📄 OCR (Gemini)</option>
+    <option
+      value="regular"
+      disabled={isModeInBans(bans, "regular") && isModeInBans(bans, "ocr")}
+    >
+      {(isModeInBans(bans, "regular") && isModeInBans(bans, "ocr")) ? "⛔" : "🤖"} Regular
+    </option>
+    <option value="uncensored" disabled={isModeInBans(bans, "uncensored")}>
+      {isModeInBans(bans, "uncensored") ? "⛔" : "🔥"} Uncensored
+    </option>
+    <option value="multi_debugger" disabled={isModeInBans(bans, "multi_debugger")}>
+      {isModeInBans(bans, "multi_debugger") ? "⛔" : "🔍"} Multi-Debugger
+    </option>
   </select>
+
+  {/* Model sub-picker — only visible inside the Regular category */}
+  {(currentMode === "regular" || currentMode === "ocr") && (
+    <select
+      id="model"
+      value={currentMode}
+      onChange={(e) => {
+        const val = e.target.value;
+        if (isModeInBans(bans, val)) return;
+        onModeChange(val);
+      }}
+      className={`model-select ${theme}-theme`}
+      aria-label="Model"
+    >
+      <option value="regular" disabled={isModeInBans(bans, "regular")}>
+        {isModeInBans(bans, "regular") ? "⛔" : "⚡"} {modelNames.mistral}
+      </option>
+      <option value="ocr" disabled={isModeInBans(bans, "ocr")}>
+        {isModeInBans(bans, "ocr") ? "⛔" : "✨"} {modelNames.gemini} (OCR)
+      </option>
+    </select>
+  )}
 
   {/* ACTION BUTTONS ROW */}
   <div className="icon-row">
@@ -304,11 +366,17 @@ const [settingsOpen, setSettingsOpen] = useState(false);
 
       <section className="settings-section">
         <h4>Account</h4>
-        <button className="settings-item">
-          👤 Profile (coming soon)
+        <button
+          className="settings-item"
+          onClick={() => { setSettingsOpen(false); setProfileOpen(true); }}
+        >
+          👤 Profile &amp; Security
         </button>
-        <button className="settings-item">
-          🔒 Security (coming soon)
+        <button
+          className="settings-item"
+          onClick={() => { setSettingsOpen(false); navigate("/billing"); }}
+        >
+          {isPremium ? "⭐ Billing — Premium" : "💳 Billing & Upgrade"}
         </button>
       </section>
 
@@ -380,7 +448,12 @@ const [settingsOpen, setSettingsOpen] = useState(false);
   </div>
 )}
 
-
+<ProfileModal
+  isOpen={profileOpen}
+  onClose={() => setProfileOpen(false)}
+  theme={theme}
+  isPremium={isPremium}
+/>
 
     </aside>
   );

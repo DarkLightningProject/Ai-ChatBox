@@ -6,6 +6,7 @@ import "../styles/auth.css";
 export default function Login() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -41,14 +42,17 @@ export default function Login() {
             />
           </div>
 
-          <div className="input-group">
+          <div className="input-group password-group">
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <button type="button" className="eye-btn" onClick={() => setShowPassword(p => !p)}>
+              {showPassword ? "Hide" : "Show"}
+            </button>
           </div>
 
           <button type="submit" className="auth-btn">

@@ -5,18 +5,19 @@ import ChatApp from "./Components/ChatApp";
 import Sidebar from "./Components/Sidebar";
 import "./styles/variables.css";
 import "./styles/layout.css";
-import { Routes, Route, useParams, useNavigate,Navigate } from "react-router-dom";
+import { Routes, Route, Outlet, useParams, useNavigate, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ResetPassword from "./pages/ResetPassword";
-
 import ForgotPassword from "./pages/ForgotPassword";
+import Checkout from "./pages/Checkout";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import Billing from "./pages/Billing";
+import VerifyEmail from "./pages/VerifyEmail";
 import api from "./api";
 
 // import ChatWrapper from "./ChatWrapper";
 
-
-console.log("API_BASE =", process.env.REACT_APP_API_BASE);
 
 function upsertSessions(list, item) {
   const i = list.findIndex(s => s.session_id === item.session_id);
@@ -25,13 +26,16 @@ function upsertSessions(list, item) {
   next[i] = { ...next[i], ...item };
   return next;
 }
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
 const clamp = (s, n = 60) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 /* -------------------------------
    ChatWrapper
    - Manages sidebar, sessions, and chat
 -------------------------------- */
-function ChatWrapper({ mode, setMode, theme, setTheme }) {
+function ChatWrapper({ mode, setMode, theme, setTheme, initialData }) {
+  const { isPremium, bans: serverBans } = useUserStatus(initialData);
+  // localBans merges in any 403-banned responses received mid-session
+  const [localBans, setLocalBans] = useState({});
+  const bans = { ...serverBans, ...localBans };
   const { sessionId } = useParams(); // always from URL
   const navigate = useNavigate();
   const clearTimersRef = React.useRef({});
@@ -43,13 +47,14 @@ function ChatWrapper({ mode, setMode, theme, setTheme }) {
   const [sidebarOpen, setSidebarOpen] = useState(
     typeof window !== "undefined" ? window.innerWidth > 768 : true
   );
-  const [creating, setCreating] = useState(false);
 
   // sessions state
   const [sessions, setSessions] = useState([]);
 
   /* ---------- Handlers ---------- */
-const lastCreatedRef = React.useRef(null);  
+const lastCreatedRef = React.useRef(null);
+const skipFetchRef = React.useRef(false);
+const creatingRef = React.useRef(false);
 const handleSessionCreated = (id, title, createdMode = mode) => {
   if (lastCreatedRef.current === id) return; // guard same tick
   lastCreatedRef.current = id;
@@ -74,24 +79,21 @@ const openSession = (id, sessionMode) => {
 
 const handleModeChange = async (newMode) => {
   setMode(newMode);
-
-  // We already filter the sidebar list by mode via fetchSessions(params: { mode })
-  // Wait a tick so sessions state updates after fetch
-  setTimeout(() => {
-    setSessions((prev) => {
-      // prev already contains sessions of *current* mode if fetchSessions ran,
-      // but to be safe, filter by target mode here:
-      const list = prev.filter((s) => s.mode === newMode);
-      if (list.length > 0) {
-        // open the most recently updated one (your fetch already sorts)
-        navigate(`/chat/${list[0].session_id}`);
-      } else {
-        // no session in this mode yet → show blank; first send or +New Chat will create
-        navigate(`/`);
-      }
-      return prev;
-    });
-  }, 0);
+  skipFetchRef.current = true; // suppress the useEffect fetch triggered by mode change
+  try {
+    const res = await api.get("/api/sessions/", { params: { mode: newMode } });
+    const list = res.data || [];
+    setSessions(list);
+    if (list.length > 0) {
+      navigate(`/chat/${list[0].session_id}`);
+    } else {
+      navigate("/");
+    }
+  } catch (err) {
+    skipFetchRef.current = false;
+    console.error("Failed to fetch sessions on mode change:", err);
+    navigate("/");
+  }
 };
 
 const handleSessionTitled = React.useCallback((id, newTitleRaw) => {
@@ -155,11 +157,10 @@ const handleSessionTitled = React.useCallback((id, newTitleRaw) => {
 
 
 const handleNewSession = async () => {
-  if (creating) return;
+  if (creatingRef.current) return;
+  creatingRef.current = true;
 
   try {
-    setCreating(true);
-
     const r = await api.post("/api/sessions/new/", {
       mode,
     });
@@ -176,7 +177,7 @@ const handleNewSession = async () => {
   } catch (e) {
     console.error("Failed to create new session:", e);
   } finally {
-    setCreating(false);
+    creatingRef.current = false;
   }
 };
   /* ---------- Effects ---------- */
@@ -203,12 +204,24 @@ const handleNewSession = async () => {
 
   // fetch sessions
   const fetchSessions = useCallback(async () => {
+  if (skipFetchRef.current) {
+    skipFetchRef.current = false;
+    return;
+  }
   try {
     const res = await api.get("/api/sessions/", {
       params: { mode },
     });
-
-    setSessions(res.data);
+    const serverList = res.data || [];
+    setSessions(prev => {
+      // Merge instead of replace: if a session was created mid-flight
+      // (onSessionCreated fired before this response arrived), a plain
+      // setSessions(serverList) would wipe it out and flash "No chats yet".
+      // Keep any local-only entries that the stale server snapshot missed.
+      const serverIds = new Set(serverList.map(s => s.session_id));
+      const localOnly = prev.filter(s => !serverIds.has(s.session_id));
+      return [...localOnly, ...serverList];
+    });
   } catch (err) {
     console.error("Failed to fetch sessions:", err);
   }
@@ -218,44 +231,62 @@ const handleNewSession = async () => {
     fetchSessions();
   }, [fetchSessions]);
 
+  // When the user is on "/" with no active session but existing sessions exist,
+  // silently redirect to the most recent one. This prevents every send from "/"
+  // creating a brand-new session and duplicating the sidebar.
+  useEffect(() => {
+    if (!sessionId && sessions.length > 0) {
+      navigate(`/chat/${sessions[0].session_id}`, { replace: true });
+    }
+  }, [sessions, sessionId, navigate]);
+
   /* ---------- Render ---------- */
   return (
-    <div className={`app-shell ${theme}-theme`}>
-      {sidebarOpen && (
-        <Sidebar
-          sessions={sessions}
-          onSessionSelect={(id, m) => openSession(id, m)} 
-          currentSession={sessionId}
-          onModeChange={handleModeChange}
-          currentMode={mode}
-          onNewSession={handleNewSession}
-          onDeleted={handleDeleted}
-          onRenamed={handleRenamed}
-          theme={theme}
-          toggleTheme={() => {
-            const next = theme === "light" ? "dark" : "light";
-            setTheme(next);
-            localStorage.setItem("theme", next);
-          }}
-        />
-      )}
+    <>
+      <div className={`app-shell ${theme}-theme`}>
+        {sidebarOpen && (
+          <Sidebar
+            sessions={sessions}
+            onSessionSelect={(id, m) => openSession(id, m)}
+            currentSession={sessionId}
+            onModeChange={handleModeChange}
+            currentMode={mode}
+            onNewSession={handleNewSession}
+            onDeleted={handleDeleted}
+            onRenamed={handleRenamed}
+            theme={theme}
+            isPremium={isPremium}
+            bans={bans}
+            toggleTheme={() => {
+              const next = theme === "light" ? "dark" : "light";
+              setTheme(next);
+              localStorage.setItem("theme", next);
+            }}
+          />
+        )}
 
-      <main className={`chat-pane ${theme}-theme`}>
-       
-
-        <ChatApp
-  key={`${sessionId || "blank"}:${mode}`}
-  sessionId={sessionId}
-  mode={mode}
-  theme={theme}
-  setSessionId={(id) => navigate(`/chat/${id}`)}
-  onSessionTitled={handleSessionTitled}
-  onSessionCreated={handleSessionCreated}
-  toggleSidebar={() => setSidebarOpen((o) => !o)}   // ONLY this one
-/>
-
-      </main>
-    </div>
+        <main className={`chat-pane ${theme}-theme`}>
+          <ChatApp
+            key={mode}
+            sessionId={sessionId}
+            fallbackSessionId={!sessionId && sessions.length > 0 ? sessions[0].session_id : undefined}
+            mode={mode}
+            theme={theme}
+            isPremium={isPremium}
+            bans={bans}
+            onBanDetected={(banInfo) => setLocalBans(prev => ({
+              ...prev,
+              [banInfo.feature]: { expires_at: banInfo.ban_expires_at, reason: banInfo.ban_reason }
+            }))}
+            setSessionId={(id) => navigate(`/chat/${id}`)}
+            onSessionTitled={handleSessionTitled}
+            onSessionCreated={handleSessionCreated}
+            toggleSidebar={() => setSidebarOpen((o) => !o)}
+          />
+        </main>
+      </div>
+      <Outlet />
+    </>
   );
 }
 
@@ -263,11 +294,53 @@ const handleNewSession = async () => {
    App
 -------------------------------- */
 /* ---------- Auth Guard ---------- */
+// Calls /api/auth/me/ ONCE, stores the result, and passes it to children via
+// a render-prop so child components never need to fetch it again.
 const RequireAuth = ({ children }) => {
-  const user = JSON.parse(localStorage.getItem("user"));
-  if (!user) return <Navigate to="/login" replace />;
-  return children;
+  const [state, setState] = useState("loading"); // "loading" | "ok" | "fail"
+  const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    api.get("/api/auth/me/")
+      .then(res => {
+        localStorage.setItem("user", JSON.stringify(res.data));
+        setUserData(res.data);
+        setState("ok");
+      })
+      .catch(() => {
+        localStorage.removeItem("user");
+        setState("fail");
+      });
+  }, []);
+
+  if (state === "loading") return null;
+  if (state === "fail") return <Navigate to="/login" replace />;
+  // Pass userData to children if children is a function (render prop),
+  // otherwise render as-is (e.g. Checkout, Billing don't need user data).
+  return typeof children === "function" ? children(userData) : children;
 };
+
+function useUserStatus(initialData) {
+  // Seed state from the data already fetched by RequireAuth — no extra request.
+  const [isPremium, setIsPremium] = useState(initialData?.is_premium === true);
+  const [bans, setBans] = useState(initialData?.bans || {});
+
+  // Keep in sync if the user upgrades/gets banned mid-session (periodic refresh).
+  useEffect(() => {
+    const refresh = () => {
+      api.get("/api/auth/me/").then(res => {
+        localStorage.setItem("user", JSON.stringify(res.data));
+        setIsPremium(res.data.is_premium === true);
+        setBans(res.data.bans || {});
+      }).catch(() => {});
+    };
+    // Re-fetch every 5 minutes in the background to pick up admin changes.
+    const id = setInterval(refresh, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return { isPremium, bans };
+}
 
 export default function App() {
   const [mode, setMode] = useState(localStorage.getItem("mode") || "regular");
@@ -280,36 +353,56 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot" element={<ForgotPassword />} />
       <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
+      <Route path="/verify-email/:uid/:token" element={<VerifyEmail />} />
+
+      {/* ---------- Payment Routes (protected) ---------- */}
+      <Route
+        path="/checkout"
+        element={
+          <RequireAuth>
+            <Checkout />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/payment-success"
+        element={
+          <RequireAuth>
+            <PaymentSuccess />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/billing"
+        element={
+          <RequireAuth>
+            <Billing />
+          </RequireAuth>
+        }
+      />
 
 
       {/* ---------- Protected Chat Routes ---------- */}
+      {/* Single layout route keeps ChatWrapper mounted across "/" and "/chat/:sessionId"
+          so sessions state survives navigation and never causes duplicate sessions. */}
       <Route
-        path="/"
         element={
           <RequireAuth>
-            <ChatWrapper
-              mode={mode}
-              setMode={setMode}
-              theme={theme}
-              setTheme={setTheme}
-            />
+            {(userData) => (
+              <ChatWrapper
+                mode={mode}
+                setMode={setMode}
+                theme={theme}
+                setTheme={setTheme}
+                initialData={userData}
+              />
+            )}
           </RequireAuth>
         }
-      />
-
-      <Route
-        path="/chat/:sessionId"
-        element={
-          <RequireAuth>
-            <ChatWrapper
-              mode={mode}
-              setMode={setMode}
-              theme={theme}
-              setTheme={setTheme}
-            />
-          </RequireAuth>
-        }
-      />
+      >
+        <Route index />
+        <Route path="/chat/:sessionId" />
+      </Route>
     </Routes>
   );
 }
