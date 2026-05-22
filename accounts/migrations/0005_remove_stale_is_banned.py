@@ -2,8 +2,10 @@ from django.db import migrations
 
 
 def drop_is_banned(apps, schema_editor):
-    # Drop the index first (SQLite won't drop a column that has an index),
-    # then drop the stale column left over from a deleted migration.
+    db = schema_editor.connection
+    columns = [col.name for col in db.introspection.get_table_description(db.cursor(), "accounts_profile")]
+    if "is_banned" not in columns:
+        return
     schema_editor.execute(
         "DROP INDEX IF EXISTS accounts_profile_is_banned_a25fb09a"
     )
