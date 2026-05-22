@@ -275,18 +275,21 @@ def me(request):
     get_token(request)  # ensures CSRF cookie is set on every app load
     user = request.user
     try:
-        profile    = user.profile
-        is_premium = profile.is_premium
-        bans       = _resolve_active_bans(profile)
+        profile        = user.profile
+        is_premium     = profile.is_premium
+        email_verified = profile.email_verified
+        bans           = _resolve_active_bans(profile)
     except Profile.DoesNotExist:
-        is_premium = False
-        bans       = {}
+        is_premium     = False
+        email_verified = False
+        bans           = {}
     return Response({
-        "user_id":    user.id,
-        "username":   user.username,
-        "email":      user.email,
-        "is_premium": is_premium,
-        "bans":       bans,   # {feature: {expires_at, reason}} — empty {} if no bans
+        "user_id":        user.id,
+        "username":       user.username,
+        "email":          user.email,
+        "is_premium":     is_premium,
+        "email_verified": email_verified,
+        "bans":           bans,
     })
 
 
