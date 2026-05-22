@@ -1,0 +1,68 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<h1>Remove Specific Bans</h1>
+
+<p>
+  Removing bans from the following
+  <strong>{{ queryset.count }} user{{ queryset.count|pluralize }}</strong>:
+</p>
+
+<ul>
+  {% for profile in queryset %}
+    <li>
+      <strong>{{ profile.user.username }}</strong> ({{ profile.user.email }})
+      {% with active=profile.get_active_bans %}
+        {% if active %}
+          &mdash;
+          {% for f, ban in active.items %}
+            <span style="color:#dc2626;">{{ ban }}</span>{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        {% else %}
+          &mdash; <span style="color:#6b7280;">no active bans</span>
+        {% endif %}
+      {% endwith %}
+    </li>
+  {% endfor %}
+</ul>
+
+<p>Select which features to unban (leave all unchecked to remove <strong>all</strong> bans):</p>
+
+<form method="post">
+  {% csrf_token %}
+
+  {% for profile in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ profile.pk }}">
+  {% endfor %}
+
+  <table>
+    <tbody>
+      {% for value, label in feature_choices %}
+        <tr>
+          <td>
+            <input type="checkbox" name="features" value="{{ value }}" id="feat_{{ value }}" checked>
+          </td>
+          <td>
+            <label for="feat_{{ value }}">{{ label }}</label>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="help">Only checked features will be unbanned. Unchecking all removes everything.</p>
+
+  <div style="margin-top:20px;">
+    <input
+      type="submit"
+      name="apply_unban"
+      value="Confirm Unban"
+      class="button default"
+      style="background:#16a34a;border-color:#15803d;"
+    >
+    &nbsp;
+    <a href="javascript:history.back();" class="button cancel-link">Cancel</a>
+  </div>
+</form>
+{% endblock %}

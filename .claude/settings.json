@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx react-scripts:*)",
+      "Bash(grep -E \"\\\\.\\(py|txt|md\\)$\")",
+      "Bash(find '/f/GOD/4DDIG_20250814_005955/F/Existing Files/chatgpt_clone_backend' -type d -not -path */.* -not -path */node_modules/* -not -path */__pycache__/* -not -path */venv*)",
+      "Bash(grep -r \"payment\\\\|stripe\\\\|razorpay\\\\|pricing\\\\|subscription\" '/f/GOD/4DDIG_20250814_005955/F/Existing Files/chatgpt_clone_backend' --include=*.py --include=*.js --include=*.jsx)",
+      "Bash(python -c \":*)",
+      "Bash(source venv1/Scripts/activate)",
+      "Bash(python manage.py makemigrations payments)",
+      "Bash(python manage.py migrate payments)",
+      "Bash(python manage.py makemigrations payments --no-input)",
+      "Bash(python manage.py migrate payments --no-input)",
+      "Bash(python manage.py migrate accounts --no-input)",
+      "Read(//f/GOD/4DDIG_20250814_005955/**)",
+      "Bash(venv1/Scripts/python manage.py migrate accounts)",
+      "Bash(python -c ' *)",
+      "Bash(git -C \"f:\\\\GOD\\\\4DDIG_20250814_005955\\\\F\\\\Existing Files\\\\chatgpt_clone_backend\" submodule status)",
+      "Bash(git -C \"f:\\\\GOD\\\\4DDIG_20250814_005955\\\\F\\\\Existing Files\\\\chatgpt_clone_backend\" ls-files --error-unmatch \"chatgpt-frontend\")",
+      "Bash(git -C \"f:\\\\GOD\\\\4DDIG_20250814_005955\\\\F\\\\Existing Files\\\\chatgpt_clone_backend\" ls-tree HEAD -- chatgpt-frontend)",
+      "Bash(git -C \"f:\\\\GOD\\\\4DDIG_20250814_005955\\\\F\\\\Existing Files\\\\chatgpt_clone_backend\" status --short)",
+      "Bash(git -C \"f:\\\\GOD\\\\4DDIG_20250814_005955\\\\F\\\\Existing Files\\\\chatgpt_clone_backend\" rm --cached db.sqlite3)",
+      "Bash(git -C \"f:\\\\GOD\\\\4DDIG_20250814_005955\\\\F\\\\Existing Files\\\\chatgpt_clone_backend\" rm -r --cached \"accounts/__pycache__\" \"backend/__pycache__\" \"chat/__pycache__\" \"payments/__pycache__\")",
+      "Bash(git -C \"f:\\\\GOD\\\\4DDIG_20250814_005955\\\\F\\\\Existing Files\\\\chatgpt_clone_backend\" rm -r --cached \"accounts/__pycache__\" \"backend/__pycache__\" \"chat/__pycache__\")"
+    ]
+  }
+}

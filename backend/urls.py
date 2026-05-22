@@ -6,9 +6,10 @@ from django.http import JsonResponse
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/", include("chat.urls")),   # <— routes all your API endpoints
+    path("api/", include("chat.urls")),
     path("api/auth/", include("accounts.urls")),
-     path("", lambda r: JsonResponse({"status": "ok"})),
+    path("api/payments/", include("payments.urls")),
+    path("", lambda _: JsonResponse({"status": "ok"})),
 ]
 
 # Serve media in dev

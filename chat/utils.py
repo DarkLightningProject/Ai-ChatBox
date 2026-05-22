@@ -1,11 +1,11 @@
 # chat/utils.py
 import uuid
-from django.utils.text import Truncator
-from .models import ChatSession
-import uuid
-from django.core.exceptions import PermissionDenied
-from .models import ChatSession
 from typing import Optional
+
+from django.core.exceptions import PermissionDenied
+from django.utils.text import Truncator
+
+from .models import ChatSession
 
 def _new_session_id(prefix=""):
     sid = str(uuid.uuid4())[:8]
@@ -21,7 +21,7 @@ def _ensure_session(session_id: Optional[str], mode: str, user=None) -> str:
         except ChatSession.DoesNotExist:
             raise PermissionDenied("Session does not exist")
 
-        if user and session.user != user:
+        if user and session.user and session.user != user:
             raise PermissionDenied("You do not own this session")
 
         return session.session_id
@@ -32,6 +32,7 @@ def _ensure_session(session_id: Optional[str], mode: str, user=None) -> str:
     prefix = (
         "uncensored-" if mode == "uncensored"
         else "ocr-" if mode == "ocr"
+        else "debugger-" if mode == "multi_debugger"
         else ""
     )
 

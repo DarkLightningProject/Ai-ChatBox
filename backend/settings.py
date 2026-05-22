@@ -14,7 +14,7 @@ load_dotenv(BASE_DIR / ".env")
 # -------------------------
 # Core settings
 # -------------------------
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key")
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
     "chat",
     "accounts",
+    "payments",
     "anymail"
 ]
 
@@ -123,13 +124,12 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# -------------------------
-# Media / Storage
-# -------------------------
-# -------------------------
-# Media / Storage
-# -------------------------
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
+# -------------------------
+# Media / Storage
+# -------------------------
 USE_CLOUDINARY = bool(os.getenv("CLOUDINARY_URL"))
 
 
@@ -147,9 +147,28 @@ else:
 
 
 # -------------------------
+# Cache backend
+# -------------------------
+# DatabaseCache works with both SQLite (local) and PostgreSQL (production)
+# without any extra services. Shared across all workers — rate limiting and
+# login lockouts are global, not per-process.
+# Run once after deploy: python manage.py createcachetable
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_table",
+    }
+}
+
+# -------------------------
 # Default primary key
 # -------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# -------------------------
+# Session lifetime
+# -------------------------
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week
 
 # -------------------------
 # Django REST Framework
@@ -176,7 +195,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 from corsheaders.defaults import default_headers
-CORS_ALLOW_HEADERS = list(default_headers) + ["Idempotency-Key"]
+CORS_ALLOW_HEADERS = list(default_headers) + ["Idempotency-Key", "X-CSRFToken", "X-Razorpay-Signature"]
 
 # -------------------------
 # Logging
@@ -198,8 +217,16 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
+    # Per-user throttle scopes for LLM endpoints (uses Django cache backend).
+    # Limits are per authenticated user, not per IP.
+    "DEFAULT_THROTTLE_CLASSES": [],  # no global throttle — applied per-view only
+    "DEFAULT_THROTTLE_RATES": {
+        "llm_chat":  "60/hour",   # regular / uncensored chat
+        "llm_ocr":   "30/hour",   # OCR Q&A and image analysis
+        "llm_debug": "20/hour",   # multi-debugger (most expensive)
+    },
 }
 EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
@@ -207,13 +234,22 @@ ANYMAIL = {
     "BREVO_API_KEY": os.getenv("BREVO_API_KEY"),
 }
 
-DEFAULT_FROM_EMAIL = "eclipsexautomationsolution@gmail.com"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "eclipsexautomationsolution@gmail.com")
+
+# -------------------------
+# Razorpay
+# -------------------------
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
 
 
 
 
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = False
+SESSION_COOKIE_HTTPONLY  = True
+CSRF_COOKIE_HTTPONLY     = False
+SESSION_COOKIE_AGE       = 60 * 60 * 24 * 7   # 1 week (was Django default 2 weeks)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False         # keep session across browser restarts
 # 🔐 Auth + Sessions
 if DEBUG:
     # ✅ Local development
@@ -232,4 +268,9 @@ else:
 # 🔑 CORS
 CORS_ALLOW_CREDENTIALS = True
 
-# SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER        = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS            = 31536000  # 1 year — browsers enforce HTTPS-only
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD            = True
+    SECURE_SSL_REDIRECT            = True      # redirect plain HTTP → HTTPS

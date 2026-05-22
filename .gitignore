@@ -2,5 +2,13 @@ venv/
 venv1/
 .env
 media/
-db.sqlite3/
+db.sqlite3
 uploads/
+staticfiles/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+BACKEND_ENGINEERING_REFERENCE.md

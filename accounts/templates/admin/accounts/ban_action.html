@@ -1,0 +1,78 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<h1>Custom Ban — Choose Features, Duration &amp; Reason</h1>
+
+<p>
+  You are about to apply bans to the following
+  <strong>{{ queryset.count }} user{{ queryset.count|pluralize }}</strong>:
+</p>
+
+<ul>
+  {% for profile in queryset %}
+    <li>
+      <strong>{{ profile.user.username }}</strong>
+      ({{ profile.user.email }})
+      {% if profile.is_premium %}
+        &nbsp;<span style="color:#16a34a;">★ Premium</span>
+      {% endif %}
+      {% with active=profile.get_active_bans %}
+        {% if active %}
+          &nbsp;<span style="color:#dc2626;">⛔ Already has {{ active|length }} ban(s)</span>
+        {% endif %}
+      {% endwith %}
+    </li>
+  {% endfor %}
+</ul>
+
+<div style="background:#fff3cd;border:1px solid #f59e0b;padding:12px 16px;border-radius:6px;margin:16px 0;">
+  <strong>Note:</strong> Selecting <em>Full Account</em> will also revoke any premium access.
+  Existing bans on a feature are <strong>replaced</strong> (duration reset) if you re-ban the same feature.
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  {% for profile in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ profile.pk }}">
+  {% endfor %}
+
+  <table>
+    <tbody>
+      {% for field in form %}
+        <tr>
+          <th scope="row" style="vertical-align:top;padding-top:8px;">
+            <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+          </th>
+          <td>
+            {{ field }}
+            {% if field.help_text %}
+              <p class="help">{{ field.help_text }}</p>
+            {% endif %}
+            {% for error in field.errors %}
+              <p class="errornote">{{ error }}</p>
+            {% endfor %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if form.non_field_errors %}
+    <p class="errornote">{{ form.non_field_errors }}</p>
+  {% endif %}
+
+  <div style="margin-top:20px;">
+    <input
+      type="submit"
+      name="apply_ban"
+      value="Confirm Ban"
+      class="button default"
+      style="background:#dc2626;border-color:#b91c1c;"
+    >
+    &nbsp;
+    <a href="javascript:history.back();" class="button cancel-link">Cancel</a>
+  </div>
+</form>
+{% endblock %}

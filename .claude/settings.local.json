@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(pip freeze:*)",
+      "Bash(python -c \":*)",
+      "Bash(\"f:/GOD/4DDIG_20250814_005955/F/Existing Files/chatgpt_clone_backend/.env\":*)",
+      "Bash(python manage.py check)",
+      "Bash(./venv/Scripts/python.exe manage.py check)",
+      "Bash(./venv1/Scripts/python.exe manage.py check)",
+      "Bash(./venv1/Scripts/pip.exe install:*)",
+      "Bash(./venv1/Scripts/python.exe manage.py makemigrations chat --name multi_debugger_mode)",
+      "Bash(npm run:*)",
+      "Bash(./venv1/Scripts/python.exe manage.py makemigrations chat)",
+      "Bash(./venv1/Scripts/python.exe manage.py migrate)",
+      "Bash(npm install:*)",
+      "Bash(venv1/Scripts/python -c \":*)",
+      "Bash(venv/Scripts/python.exe manage.py shell -c \"from django.core.cache import cache; cache.clear\\(\\); print\\(''Cache cleared''\\)\")"
+    ]
+  }
+}
