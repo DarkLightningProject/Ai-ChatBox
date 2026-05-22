@@ -19,7 +19,6 @@ from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import status
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -218,7 +217,7 @@ def verify_email(request, uidb64, token):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def resend_verification_email(request):
     user = request.user
@@ -294,7 +293,7 @@ def me(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     logout(request)
