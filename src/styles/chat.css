@@ -1093,10 +1093,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: 100%;
+  width: min(520px, 78vw);
+  max-width: 100%;
 }
 .edit-textarea {
   width: 100%;
+  min-width: 220px;
   min-height: 72px;
   padding: 10px 12px;
   border-radius: 8px;
@@ -1105,7 +1107,8 @@
   color: var(--text);
   font-size: 14px;
   font-family: inherit;
-  resize: vertical;
+  resize: both;
+  overflow: auto;
   outline: none;
   box-sizing: border-box;
 }
