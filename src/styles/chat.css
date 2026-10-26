@@ -74,6 +74,7 @@
   gap: 8px;
   animation: fadeIn 0.3s ease;
   align-self: flex-start;
+  min-width: 0;
 }
 
 @keyframes fadeIn {
@@ -91,6 +92,8 @@
   box-shadow: var(--shadow);
   transition: all 0.3s ease;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Prose styles for markdown rendered inside bot bubbles */
@@ -243,12 +246,16 @@
   font-size: 13px;
 }
 
-.bubble.user { 
-  align-self: flex-end; 
+.bubble.user {
+  align-self: flex-end;
   margin-left: auto;
+  max-width: min(78%, 760px);
 }
 
 .bubble.user .bubble-inner {
+  flex: 0 1 auto;
+  max-width: 100%;
+  width: auto;
   background: linear-gradient(180deg, var(--primary), var(--primary-600));
   color: white;
   border-color: transparent;
