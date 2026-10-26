@@ -9,6 +9,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.core.validators import validate_email as django_validate_email
 from django.db.models import Q
@@ -34,6 +35,23 @@ _POST_REQUIRED = "POST required"
 _INVALID_JSON = "Invalid JSON"
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+VERIFICATION_EMAIL_FAILURE_LIMIT = 2
+
+
+def _record_verification_email_failure(user):
+    failures_key = f"verification_email_failures:{user.pk}"
+    cache.add(failures_key, 0)
+    try:
+        failures = cache.incr(failures_key)
+    except ValueError:
+        cache.set(failures_key, 1)
+        failures = 1
+
+    return failures
+
+
+def _clear_verification_email_failures(user):
+    cache.delete(f"verification_email_failures:{user.pk}")
 
 
 def _send_verification_email(user):
@@ -93,14 +111,22 @@ def signup(request):
         password=password
     )
 
+    verification_email_sent = True
     try:
         _send_verification_email(user)
     except Exception:
         logger.exception("Failed to send verification email for user %s", user.id)
+        verification_email_sent = False
+        _record_verification_email_failure(user)
 
     return JsonResponse({
-        "message": "Signup successful. Please check your email to verify your account.",
-        "user_id": user.id
+        "message": (
+            "Signup successful. Please check your email to verify your account."
+            if verification_email_sent
+            else "Account created, but the verification email could not be sent."
+        ),
+        "user_id": user.id,
+        "verification_email_sent": verification_email_sent,
     })
 
 
@@ -228,7 +254,24 @@ def resend_verification_email(request):
         _send_verification_email(user)
     except Exception:
         logger.exception("Failed to resend verification email for user %s", user.id)
-        return Response({"error": "Failed to send email. Please try again later."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        failures = _record_verification_email_failure(user)
+        if failures >= VERIFICATION_EMAIL_FAILURE_LIMIT:
+            return Response(
+                {
+                    "error": (
+                        "Verification email delivery has failed more than once. "
+                        "This is a prototype; please try again later."
+                    )
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return Response(
+            {
+                "error": "Could not send the verification email. Please try again later."
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    _clear_verification_email_failures(user)
     return Response({"message": "Verification email sent"})
 
 

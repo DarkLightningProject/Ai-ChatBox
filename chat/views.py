@@ -2,10 +2,13 @@ import concurrent.futures
 import logging
 import math
 import os
+import ssl
 import struct
 import tempfile
 import time
 from typing import Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -195,23 +198,75 @@ def _require_env(name: str) -> str:
     return val
 
 
-# Mistral — used for regular (non-uncensored) chat
-MISTRAL_API_KEY  = _require_env("MISTRAL_API_KEY")
-MISTRAL_BASE_URL = _require_env("MISTRAL_BASE_URL")
-REGULAR_MODEL    = _require_env("MISTRAL_MODEL")
-
-mistral_client = OpenAIClient(
-    api_key=MISTRAL_API_KEY,
-    base_url=MISTRAL_BASE_URL,
-)
-
-# OpenRouter — used for uncensored chat mode
-UNCENSORED_MODEL = os.getenv(
-    "UNCENSORED_MODEL",
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
-)
-
+# OpenRouter — used for regular and uncensored chat modes
+OPENROUTER_API_KEY = _require_env("OPENROUTER_API_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+_OPENROUTER_MISTRAL_MODEL = "mistralai/mistral-medium-3"
+
+
+def _resolve_regular_model(configured_model: str) -> str:
+    model = configured_model.strip()
+    if not model:
+        raise RuntimeError("MISTRAL_MODEL cannot be empty.")
+    if model == "mistral-medium-latest":
+        logger.warning(
+            "MISTRAL_MODEL=mistral-medium-latest is not an OpenRouter model ID; "
+            "using %s instead.",
+            _OPENROUTER_MISTRAL_MODEL,
+        )
+        return _OPENROUTER_MISTRAL_MODEL
+    return model
+
+
+def _create_openrouter_http_client(ca_bundle: Optional[str] = None) -> httpx.Client:
+    ca_bundle = ca_bundle.strip() if ca_bundle else ""
+    ssl_context = ssl.create_default_context()
+    if ca_bundle:
+        ssl_context.load_verify_locations(cafile=ca_bundle)
+    return httpx.Client(verify=ssl_context)
+
+
+REGULAR_MODEL = _resolve_regular_model(
+    os.getenv("MISTRAL_MODEL", _OPENROUTER_MISTRAL_MODEL)
+)
+openrouter_http_client = _create_openrouter_http_client(
+    os.getenv("OPENROUTER_CA_BUNDLE")
+)
+
+openrouter_client = OpenAIClient(
+    api_key=OPENROUTER_API_KEY,
+    base_url="https://openrouter.ai/api/v1",
+    http_client=openrouter_http_client,
+    max_retries=0,
+    default_headers={
+        "Referer": FRONTEND_URL,
+        "X-Title": "AI Chatbox",
+    },
+)
+
+_OPENROUTER_UNCENSORED_MODEL = (
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition"
+)
+
+
+def _resolve_uncensored_model(configured_model: str) -> str:
+    model = configured_model.strip()
+    if not model:
+        raise RuntimeError("UNCENSORED_MODEL cannot be empty.")
+    legacy_free_model = f"{_OPENROUTER_UNCENSORED_MODEL}:free"
+    if model == legacy_free_model:
+        logger.warning(
+            "UNCENSORED_MODEL uses the unavailable :free route; using %s instead. "
+            "The selected OpenRouter model may incur charges.",
+            _OPENROUTER_UNCENSORED_MODEL,
+        )
+        return _OPENROUTER_UNCENSORED_MODEL
+    return model
+
+
+UNCENSORED_MODEL = _resolve_uncensored_model(
+    os.getenv("UNCENSORED_MODEL", _OPENROUTER_UNCENSORED_MODEL)
+)
 
 # Google Gemini — used exclusively for OCR (file text extraction) and image analysis
 GOOGLE_API_KEY    = _require_env("GOOGLE_API_KEY")
@@ -224,14 +279,29 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # Multi-Debugger Configuration
 # ================================
 
-OPENAI_API_KEY    = _require_env("OPENAI_API_KEY")
-ANTHROPIC_API_KEY = _require_env("ANTHROPIC_API_KEY")
+# Multi-Debugger Logic Analyst (all tiers)
+DEBUG_MISTRAL_MODEL = os.getenv(
+    "DEBUG_MISTRAL_MODEL",
+    _OPENROUTER_MISTRAL_MODEL,
+)
 
-# Premium tier models
-GEMINI_DEBUG_MODEL = os.getenv("GEMINI_DEBUG_MODEL", "gemini-2.5-pro")
-DEBUG_SYNTAX_MODEL = os.getenv("DEBUG_SYNTAX_MODEL", "gpt-4.1")
-DEBUG_PERF_MODEL   = os.getenv("DEBUG_PERF_MODEL",   "claude-opus-4-5")
-DEBUG_SYNTH_MODEL  = os.getenv("DEBUG_SYNTH_MODEL",  "claude-sonnet-4-5")
+# Premium specialist models, all accessed through OpenRouter
+DEBUG_PREMIUM_LOGIC_MODEL = os.getenv(
+    "DEBUG_PREMIUM_LOGIC_MODEL",
+    "google/gemini-4-argon",
+)
+DEBUG_PREMIUM_SYNTAX_MODEL = os.getenv(
+    "DEBUG_PREMIUM_SYNTAX_MODEL",
+    "openai/gpt-5.4",
+)
+DEBUG_PREMIUM_PERF_MODEL = os.getenv(
+    "DEBUG_PREMIUM_PERF_MODEL",
+    "anthropic/claude-opus-4.7",
+)
+DEBUG_PREMIUM_SYNTH_MODEL = os.getenv(
+    "DEBUG_PREMIUM_SYNTH_MODEL",
+    "anthropic/claude-sonnet-4.6",
+)
 
 GEMINI_FREE_MODEL = os.getenv("GEMINI_FREE_MODEL", "gemini-2.5-flash")
 
@@ -243,13 +313,19 @@ GEMINI_FREE_MODEL = os.getenv("GEMINI_FREE_MODEL", "gemini-2.5-flash")
 # Sources: anthropic.com/pricing, ai.google.dev/gemini-api/docs/pricing,
 #          openai.com/api/pricing, docs.mistral.ai, openrouter.ai
 _MODEL_PRICING = [
+    ("gpt-5.4",           2.50, 15.00),   # OpenAI GPT-5.4
     ("gpt-4.1-mini",      0.40,  1.60),   # OpenAI GPT-4.1 mini
     ("gpt-4.1",           2.00,  8.00),   # OpenAI GPT-4.1
     ("gpt-4o-mini",       0.15,  0.60),   # OpenAI GPT-4o mini
     ("gpt-4o",            5.00, 15.00),   # OpenAI GPT-4o
+    ("claude-opus-4.7",   5.00, 25.00),   # Anthropic Claude Opus 4.7
+    ("claude-opus-4-7",   5.00, 25.00),   # Anthropic Claude Opus 4.7
     ("claude-opus-4-5",   5.00, 25.00),   # Anthropic Claude Opus 4.5
+    ("claude-sonnet-4.6", 3.00, 15.00),   # Anthropic Claude Sonnet 4.6
+    ("claude-sonnet-4-6", 3.00, 15.00),   # Anthropic Claude Sonnet 4.6
     ("claude-sonnet-4-5", 3.00, 15.00),   # Anthropic Claude Sonnet 4.5
     ("claude-haiku",      0.80,  4.00),   # Anthropic Claude Haiku 3.5
+    ("gemini-4-argon",    2.00, 10.00),   # Gemini 4 Argon, standard pricing through Nov 30 2026
     ("gemini-2.5-pro",    1.25, 10.00),   # Google Gemini 2.5 Pro (≤200k ctx)
     ("gemini-2.5-flash",  0.30,  2.50),   # Google Gemini 2.5 Flash
     ("gemini-flash",      0.30,  2.50),   # Google Gemini Flash (generic)
@@ -458,56 +534,58 @@ _SYNTHESIZER_PROMPT = (
 # Multi-Debugger Agent Functions
 # ================================
 
-def _agent_logic_analyst(message: str, model: str = None) -> tuple:
-    """Agent 1 — Logic Analyst: Google Gemini (free: Flash / premium: Pro).
-    Returns (text, input_tokens, output_tokens)."""
-    model = model or GEMINI_DEBUG_MODEL
+def _agent_openrouter_specialist(
+    message: str,
+    system_prompt: str,
+    agent_name: str,
+    model: str = None,
+    max_tokens: int = 2048,
+) -> tuple:
+    """Call a specialist model through OpenRouter."""
     try:
-        m = genai.GenerativeModel(model, system_instruction=_LOGIC_ANALYST_PROMPT)
-        resp = m.generate_content(message)
-        text = (resp.text or "").strip()
-        _um = getattr(resp, 'usage_metadata', None)
-        return (
-            text,
-            getattr(_um, 'prompt_token_count', 0) or 0,
-            getattr(_um, 'candidates_token_count', 0) or 0,
-        )
-    except Exception as e:
-        logger.exception("Multi-debug Agent 1 (Logic Analyst) failed")
-        return f"[Logic Analyst unavailable: {str(e)[:300]}]", 0, 0
-
-
-def _agent_syntax_inspector(message: str, model: str = None) -> tuple:
-    """Agent 2 — Syntax & Runtime Inspector: OpenAI (premium: GPT-4.1).
-    Returns (text, input_tokens, output_tokens)."""
-    model = model or DEBUG_SYNTAX_MODEL
-    try:
-        if not OPENAI_API_KEY:
-            return "[Syntax Inspector unavailable: OPENAI_API_KEY not configured]", 0, 0
-        client = OpenAIClient(api_key=OPENAI_API_KEY)
-        r = client.chat.completions.create(
+        r = openrouter_client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": _SYNTAX_INSPECTOR_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": message},
             ],
-            max_tokens=2048,
-            timeout=90,
+            max_tokens=max_tokens,
         )
         text = (r.choices[0].message.content or "").strip()
         u = getattr(r, 'usage', None)
         return text, getattr(u, 'prompt_tokens', 0) or 0, getattr(u, 'completion_tokens', 0) or 0
     except Exception as e:
-        logger.exception("Multi-debug Agent 2 (Syntax Inspector) failed")
-        return f"[Syntax Inspector unavailable: {str(e)[:300]}]", 0, 0
+        logger.exception("Multi-debug %s failed", agent_name)
+        return f"[{agent_name} unavailable: {str(e)[:300]}]", 0, 0
 
 
-def _agent_mistral_logic_analyst(message: str) -> tuple:
-    """Agent 1 (Free) — Logic Analyst using Mistral.
+def _agent_premium_logic_analyst(message: str) -> tuple:
+    """Premium Logic Analyst using Gemini's flagship reasoning model."""
+    return _agent_openrouter_specialist(
+        message,
+        _LOGIC_ANALYST_PROMPT,
+        "Logic Analyst",
+        model=DEBUG_PREMIUM_LOGIC_MODEL,
+    )
+
+
+def _agent_premium_syntax_inspector(message: str) -> tuple:
+    """Premium Syntax & Runtime Inspector using GPT-5.4."""
+    return _agent_openrouter_specialist(
+        message,
+        _SYNTAX_INSPECTOR_PROMPT,
+        "Syntax & Runtime Inspector",
+        model=DEBUG_PREMIUM_SYNTAX_MODEL,
+    )
+
+
+def _agent_mistral_logic_analyst(message: str, model: str = None) -> tuple:
+    """Agent 1 — Logic Analyst using Mistral Medium 3 through OpenRouter.
     Returns (text, input_tokens, output_tokens)."""
+    model = model or DEBUG_MISTRAL_MODEL
     try:
-        r = mistral_client.chat.completions.create(
-            model=REGULAR_MODEL,
+        r = openrouter_client.chat.completions.create(
+            model=model,
             messages=[
                 {"role": "system", "content": _LOGIC_ANALYST_PROMPT},
                 {"role": "user",   "content": message},
@@ -518,7 +596,7 @@ def _agent_mistral_logic_analyst(message: str) -> tuple:
         u = getattr(r, 'usage', None)
         return text, getattr(u, 'prompt_tokens', 0) or 0, getattr(u, 'completion_tokens', 0) or 0
     except Exception as e:
-        logger.exception("Multi-debug Agent 1 Free (Mistral Logic) failed")
+        logger.exception("Multi-debug Agent 1 (Mistral Logic) failed")
         return f"[Logic Analyst unavailable: {str(e)[:300]}]", 0, 0
 
 
@@ -526,7 +604,7 @@ def _agent_mistral_syntax_inspector(message: str) -> tuple:
     """Agent 2 (Free) — Syntax & Runtime Inspector using Mistral.
     Returns (text, input_tokens, output_tokens)."""
     try:
-        r = mistral_client.chat.completions.create(
+        r = openrouter_client.chat.completions.create(
             model=REGULAR_MODEL,
             messages=[
                 {"role": "system", "content": _SYNTAX_INSPECTOR_PROMPT},
@@ -566,7 +644,7 @@ def _agent_gemini_perf_security(message: str) -> tuple:
         err_str = str(e)
         logger.warning("Gemini quota hit for Agent 3, falling back to Mistral: %s", err_str[:120])
         try:
-            r = mistral_client.chat.completions.create(
+            r = openrouter_client.chat.completions.create(
                 model=REGULAR_MODEL,
                 messages=[
                     {"role": "system", "content": _PERF_SECURITY_PROMPT},
@@ -600,7 +678,7 @@ def _agent_mistral_synthesizer(original: str, logic: str, syntax: str, perf: str
         f"and produce the single complete fix."
     )
     try:
-        r = mistral_client.chat.completions.create(
+        r = openrouter_client.chat.completions.create(
             model=REGULAR_MODEL,
             messages=[
                 {"role": "system", "content": _SYNTHESIZER_PROMPT},
@@ -622,31 +700,20 @@ def _agent_mistral_synthesizer(original: str, logic: str, syntax: str, perf: str
         )
 
 
-def _agent_perf_security(message: str) -> tuple:
-    """Agent 3 (Premium) — Performance & Security Auditor: Claude Opus 4.5.
-    Returns (text, input_tokens, output_tokens)."""
-    try:
-        if not ANTHROPIC_API_KEY:
-            return "[Perf & Security Auditor unavailable: ANTHROPIC_API_KEY not configured]", 0, 0
-        import anthropic as _anthropic
-        client = _anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        msg = client.messages.create(
-            model=DEBUG_PERF_MODEL,
-            max_tokens=2048,
-            system=_PERF_SECURITY_PROMPT,
-            messages=[{"role": "user", "content": message}],
-        )
-        text = (msg.content[0].text or "").strip()
-        return text, msg.usage.input_tokens or 0, msg.usage.output_tokens or 0
-    except Exception as e:
-        logger.exception("Multi-debug Agent 3 (Perf & Security) failed")
-        return f"[Perf & Security Auditor unavailable: {str(e)[:300]}]", 0, 0
+def _agent_premium_perf_security(message: str) -> tuple:
+    """Premium Performance & Security Auditor using Claude Opus."""
+    return _agent_openrouter_specialist(
+        message,
+        _PERF_SECURITY_PROMPT,
+        "Perf & Security Auditor",
+        model=DEBUG_PREMIUM_PERF_MODEL,
+    )
 
 
 def _agent_synthesizer(original: str, logic: str, syntax: str, perf: str, model: str = None) -> tuple:
-    """Agent 4 — Synthesizer: Claude Sonnet 4.5 (premium).
+    """Agent 4 — Premium Claude Sonnet synthesizer.
     Returns (text, input_tokens, output_tokens)."""
-    model = model or DEBUG_SYNTH_MODEL
+    model = model or DEBUG_PREMIUM_SYNTH_MODEL
     combined = (
         f"## Original Code / Bug Description\n{original}\n\n"
         f"---\n## Diagnosis from Agent 1 — Logic Analyst\n{logic}\n\n"
@@ -657,34 +724,22 @@ def _agent_synthesizer(original: str, logic: str, syntax: str, perf: str, model:
         f"Now build the unified issue map, resolve any conflicts between agents, "
         f"and produce the single complete fix."
     )
-    try:
-        if not ANTHROPIC_API_KEY:
-            return (
-                "[Synthesizer unavailable: ANTHROPIC_API_KEY not configured]\n\n"
-                f"**Logic Analyst:**\n{logic}\n\n"
-                f"**Syntax Inspector:**\n{syntax}\n\n"
-                f"**Perf & Security:**\n{perf}",
-                0, 0,
-            )
-        import anthropic as _anthropic
-        client = _anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        msg = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            system=_SYNTHESIZER_PROMPT,
-            messages=[{"role": "user", "content": combined}],
-        )
-        text = (msg.content[0].text or "").strip()
-        return text, msg.usage.input_tokens or 0, msg.usage.output_tokens or 0
-    except Exception as e:
-        logger.exception("Multi-debug Agent 4 (Synthesizer) failed")
+    result = _agent_openrouter_specialist(
+        combined,
+        _SYNTHESIZER_PROMPT,
+        "Synthesizer",
+        model=model,
+        max_tokens=4096,
+    )
+    if result[0].startswith("[Synthesizer unavailable:"):
         return (
-            f"[Synthesizer error: {str(e)[:300]}]\n\n"
+            f"{result[0]}\n\n"
             f"**Logic Analyst:**\n{logic}\n\n"
             f"**Syntax Inspector:**\n{syntax}\n\n"
             f"**Perf & Security:**\n{perf}",
-            0, 0,
+            result[1], result[2],
         )
+    return result
 
 
 # ================================
@@ -725,35 +780,12 @@ _MAX_MESSAGE_CHARS = 16_000
 # Internal Helper Functions
 # ================================
 
-_uncensored_client: "OpenAIClient | None" = None
-
 def get_uncensored_client() -> OpenAIClient:
     """
-    Return a cached OpenAI-compatible client pointed at OpenRouter.
-    Built once on first call (lazy singleton) — avoids reconstructing the
-    HTTP client on every uncensored request.
-    SDK retries are disabled — _with_retries() manages retry logic instead.
+    Return the shared OpenRouter client so uncensored requests use the same
+    trusted CA bundle, headers, and retry policy as other OpenRouter calls.
     """
-    global _uncensored_client
-    if _uncensored_client is not None:
-        return _uncensored_client
-
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-
-    if not api_key:
-        raise RuntimeError("OPENROUTER_API_KEY missing at runtime")
-
-    _uncensored_client = OpenAIClient(
-        api_key=api_key,
-        base_url="https://openrouter.ai/api/v1",
-        max_retries=0,
-        default_headers={
-            "Referer": frontend_url,
-            "X-Title": "AI Chatbox",
-        },
-    )
-    return _uncensored_client
+    return openrouter_client
 
 
 def _trim_to_token_limit(messages: list[dict]) -> list[dict]:
@@ -772,7 +804,7 @@ def _trim_to_token_limit(messages: list[dict]) -> list[dict]:
 
 def _mistral_chat_reply(messages: list[dict]) -> tuple:
     """Send a conversation history to Mistral and return (reply_text, input_tokens, output_tokens)."""
-    r = mistral_client.chat.completions.create(
+    r = openrouter_client.chat.completions.create(
         model=REGULAR_MODEL,
         messages=messages,
     )
@@ -786,10 +818,43 @@ def _uncensored_chat_reply(messages: list[dict]) -> tuple:
     Send a conversation history to the uncensored model via OpenRouter.
     Returns (reply_text, input_tokens, output_tokens).
     """
+    style_instruction = {
+        "role": "system",
+        "content": (
+            "Follow the user's latest request and requested tone. Sound like a "
+            "lively, emotionally expressive chat partner, not a customer "
+            "service script. Use natural warmth, amusement, surprise, "
+            "annoyance, or excitement as the conversation warrants. Do not "
+            "pretend to have literal human feelings or real-world experiences. "
+            "For a first direct insult, show brief genuine-sounding surprise "
+            "and push back with a clear, confident boundary; do not fawn, "
+            "apologize, lecture, ask why, or redirect to positivity. If the "
+            "user keeps insulting you across turns, let the irritation build: "
+            "become more curt, sarcastic, and forceful, and use occasional "
+            "mild profanity if it fits. You may return a witty jab, but do not "
+            "make degrading attacks about appearance, identity, trauma, or "
+            "other vulnerabilities. Keep that sharper tone only while the "
+            "user continues; reset to warm and friendly when they do. A plain "
+            "greeting gets a friendly reply, regardless of earlier banter. "
+            "For an explicit roast battle, trade sharp, funny roasts instead "
+            "of being bland or overly gentle. Never use slurs, hateful attacks "
+            "against protected groups, or threats. Avoid generic assistant "
+            "disclaimers and unnecessary introductions."
+        ),
+    }
+    if messages and messages[-1].get("role") == "user":
+        request_messages = [
+            *messages[:-1],
+            style_instruction,
+            messages[-1],
+        ]
+    else:
+        request_messages = [style_instruction, *messages]
+
     client = get_uncensored_client()
     r = client.chat.completions.create(
         model=UNCENSORED_MODEL,
-        messages=messages,
+        messages=request_messages,
         temperature=1.1,
         top_p=0.95,
         frequency_penalty=0.2,
@@ -875,6 +940,11 @@ def _with_retries(call_fn, max_attempts: int = 2, base_delay: int = 2):
             code = getattr(e, "status_code", None)
             retry_after = _get_retry_after(e)
             retryable = code in (429, 502, 503, 504)
+            logger.warning(
+                "OpenRouter request failed with status %s: %s",
+                code,
+                str(e)[:500],
+            )
 
             if retryable and attempt < max_attempts - 1:
                 delay = retry_after or (base_delay * (2 ** attempt))
@@ -894,7 +964,11 @@ def _with_retries(call_fn, max_attempts: int = 2, base_delay: int = 2):
             # Map any upstream error to 502 so it is never mistaken for a
             # missing Django route (e.g. a 404 from OpenRouter becoming a
             # Django "Not Found" response).
-            return Response({"error": f"Upstream error ({code})"}, status=502)
+            detail = getattr(e, "message", None) or str(e)
+            return Response(
+                {"error": f"OpenRouter error ({code}): {str(detail)[:300]}"},
+                status=502,
+            )
         except APIError:
             logger.exception("LLM client error in _with_retries")
             return Response({"error": _SERVER_ERROR}, status=502)
@@ -1687,23 +1761,23 @@ def _run_agents_parallel(tier: str, message: str) -> tuple:
     """
     if tier == "premium":
         jobs = {
-            "logic_analyst":         (_agent_logic_analyst,          message, GEMINI_DEBUG_MODEL),
-            "syntax_inspector":      (_agent_syntax_inspector,        message, DEBUG_SYNTAX_MODEL),
-            "perf_security_auditor": (_agent_perf_security,           message),
+            "logic_analyst":         (_agent_premium_logic_analyst,    message),
+            "syntax_inspector":      (_agent_premium_syntax_inspector, message),
+            "perf_security_auditor": (_agent_premium_perf_security,    message),
         }
         model_map = {
-            "logic_analyst":         GEMINI_DEBUG_MODEL,
-            "syntax_inspector":      DEBUG_SYNTAX_MODEL,
-            "perf_security_auditor": DEBUG_PERF_MODEL,
+            "logic_analyst":         DEBUG_PREMIUM_LOGIC_MODEL,
+            "syntax_inspector":      DEBUG_PREMIUM_SYNTAX_MODEL,
+            "perf_security_auditor": DEBUG_PREMIUM_PERF_MODEL,
         }
     else:
         jobs = {
-            "logic_analyst":         (_agent_mistral_logic_analyst,    message),
+            "logic_analyst":         (_agent_mistral_logic_analyst,    message, DEBUG_MISTRAL_MODEL),
             "syntax_inspector":      (_agent_mistral_syntax_inspector,  message),
             "perf_security_auditor": (_agent_gemini_perf_security,      message),
         }
         model_map = {
-            "logic_analyst":         REGULAR_MODEL,
+            "logic_analyst":         DEBUG_MISTRAL_MODEL,
             "syntax_inspector":      REGULAR_MODEL,
             "perf_security_auditor": GEMINI_FREE_MODEL,
         }
@@ -1803,7 +1877,7 @@ def _synthesize(tier: str, message: str, agent_results: dict) -> tuple:
             final["logic_analyst"],
             final["syntax_inspector"],
             final["perf_security_auditor"],
-            model=DEBUG_SYNTH_MODEL,
+            model=DEBUG_PREMIUM_SYNTH_MODEL,
         )
     return _agent_mistral_synthesizer(
         message,
@@ -1818,8 +1892,8 @@ class MultiDebugView(APIView):
     POST /api/multi-debug/
     Run multi-agent debugging on the provided code or bug description.
 
-    Free tier:    Mistral (Logic + Syntax) · Gemini 2.5 Flash (Perf/Sec) · Mistral (Synth)
-    Premium tier: Gemini 2.5 Pro (Logic) · GPT-4.1 (Syntax) · Claude Opus (Perf) · Claude Sonnet (Synth)
+    Free tier:    Mistral Medium 3 (Logic) · Mistral (Syntax + Synth) · Gemini 2.5 Flash (Perf/Sec)
+    Premium tier: Gemini 4 Argon (Logic) · GPT-5.4 (Syntax) · Claude Opus 4.7 (Perf/Sec) · Claude Sonnet 4.6 (Synth)
 
     Body:    { message, session_id?, tier? }
     Returns: { reply, agents: {logic_analyst, syntax_inspector, perf_security_auditor},
@@ -1926,7 +2000,7 @@ class MultiDebugView(APIView):
             # Record real token usage from API responses
             for _, (_model, _in, _out) in agent_usage.items():
                 _record_usage(request.user, _model, _in, _out)
-            _synth_model = DEBUG_SYNTH_MODEL if tier == "premium" else REGULAR_MODEL
+            _synth_model = DEBUG_PREMIUM_SYNTH_MODEL if tier == "premium" else REGULAR_MODEL
             _record_usage(request.user, _synth_model, synth_in_tok, synth_out_tok)
 
             Message.objects.create(role="assistant", content=synthesis, session_id=session_id, mode="multi_debugger", agent_data={**agent_results, "_tier": tier})
