@@ -155,7 +155,7 @@ def login_view(request):
 
     try:
         user_obj = User.objects.filter(
-            Q(username=identifier) | Q(email=identifier)
+            Q(username=identifier) | Q(email__iexact=identifier)
         ).first()
         if user_obj is None:
             raise User.DoesNotExist

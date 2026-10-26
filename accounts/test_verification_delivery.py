@@ -1,8 +1,13 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
 from django.test import TestCase, override_settings
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+
+from .models import Profile
 
 
 @override_settings(
@@ -17,6 +22,32 @@ from django.test import TestCase, override_settings
 class VerificationEmailDeliveryTests(TestCase):
     def setUp(self):
         cache.clear()
+
+    def test_verified_user_can_log_in_with_case_insensitive_email(self):
+        user = User.objects.create_user(
+            username="verified-user",
+            email="verified@example.com",
+            password="StrongPass1!",
+        )
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        verify_response = self.client.get(
+            f"/api/auth/verify-email/{uid}/{token}/"
+        )
+        self.assertEqual(verify_response.status_code, 200)
+        self.assertTrue(Profile.objects.get(user=user).email_verified)
+
+        login_response = self.client.post(
+            "/api/auth/login/",
+            data={
+                "identifier": "Verified@Example.com",
+                "password": "StrongPass1!",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(login_response.status_code, 200)
+        self.assertEqual(login_response.json()["message"], "Login successful")
 
     def test_signup_reports_failure_and_second_delivery_failure_only_shows_notice(self):
         with patch("accounts.views._send_verification_email", side_effect=OSError("mail unavailable")):
