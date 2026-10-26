@@ -59,6 +59,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "backend.middleware.AdminSessionCookieMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -250,6 +251,10 @@ SESSION_COOKIE_HTTPONLY  = True
 CSRF_COOKIE_HTTPONLY     = False
 SESSION_COOKIE_AGE       = 60 * 60 * 24 * 7   # 1 week (was Django default 2 weeks)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False         # keep session across browser restarts
+SESSION_COOKIE_NAME = "customer_sessionid"
+SESSION_COOKIE_PATH = "/api/"
+ADMIN_SESSION_COOKIE_NAME = "admin_sessionid"
+ADMIN_SESSION_COOKIE_PATH = "/admin/"
 # 🔐 Auth + Sessions
 if DEBUG:
     # ✅ Local development
