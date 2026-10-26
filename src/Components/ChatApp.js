@@ -1099,7 +1099,10 @@ setMessages((prev) => {
         )}
 
         {messages.map((m, i) => (
-          <div key={i} className={`bubble ${m.sender === "user" ? "user" : "bot"}`}>
+          <div
+            key={i}
+            className={`bubble ${m.sender === "user" ? "user" : "bot"}${m.sender === "user" && (m.text || "").length > 120 ? " wide" : ""}`}
+          >
             <div className="bubble-inner">
               {m.sender === "user" && editingIdx === i ? (
                 /* ---- Edit mode ---- */

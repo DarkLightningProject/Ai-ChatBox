@@ -266,6 +266,11 @@
   max-width: min(78%, 760px);
 }
 
+.bubble.user.wide {
+  width: min(92%, 900px);
+  max-width: min(92%, 900px);
+}
+
 .bubble.user .bubble-inner {
   flex: 0 1 auto;
   box-sizing: border-box;
@@ -278,6 +283,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.bubble.user.wide .bubble-inner {
+  width: 100%;
+  max-width: 100%;
 }
 
 .bubble.bot .bubble-inner {
@@ -1202,6 +1212,10 @@
   max-width: min(78%, 760px);
   padding: 13px 18px;
   border-radius: 19px 19px 5px 19px;
+}
+
+.chat-wrap .bubble.user.wide .bubble-inner {
+  max-width: 100%;
 }
 
 .chat-wrap .copy-btn-outside {
