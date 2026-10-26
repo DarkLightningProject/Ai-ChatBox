@@ -23,7 +23,7 @@ class VerificationEmailDeliveryTests(TestCase):
     def setUp(self):
         cache.clear()
 
-    def test_verified_user_can_log_in_with_case_insensitive_email(self):
+    def test_verified_user_login_preserves_username_case_and_ignores_email_case(self):
         user = User.objects.create_user(
             username="verified-user",
             email="verified@example.com",
@@ -48,6 +48,30 @@ class VerificationEmailDeliveryTests(TestCase):
         )
         self.assertEqual(login_response.status_code, 200)
         self.assertEqual(login_response.json()["message"], "Login successful")
+
+        exact_username_response = self.client.post(
+            "/api/auth/login/",
+            data={
+                "identifier": "verified-user",
+                "password": "StrongPass1!",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(exact_username_response.status_code, 200)
+        self.assertEqual(
+            exact_username_response.json()["message"],
+            "Login successful",
+        )
+
+        different_case_username_response = self.client.post(
+            "/api/auth/login/",
+            data={
+                "identifier": "Verified-User",
+                "password": "StrongPass1!",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(different_case_username_response.status_code, 401)
 
     def test_signup_reports_failure_and_second_delivery_failure_only_shows_notice(self):
         with patch("accounts.views._send_verification_email", side_effect=OSError("mail unavailable")):
