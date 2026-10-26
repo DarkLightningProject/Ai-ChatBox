@@ -1158,6 +1158,7 @@ setMessages((prev) => {
                             <SyntaxHighlighter
                               language={language}
                               style={vscDarkPlus}
+                              wrapLongLines
                               customStyle={{ margin: 0, borderRadius: 0, background: '#1e1e1e' }}
                             >
                               {codeString}

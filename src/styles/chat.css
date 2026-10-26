@@ -170,6 +170,8 @@
 /* Code Block Styles */
 .code-block {
   margin: 12px 0;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 8px;
   overflow: hidden;
   background: #1e1e1e;
@@ -210,6 +212,8 @@
 .code-block pre {
   margin: 0;
   padding: 16px;
+  max-width: 100%;
+  box-sizing: border-box;
   overflow-x: auto;
   background: #1e1e1e;
 }
@@ -254,6 +258,8 @@
 
 .bubble.user .bubble-inner {
   flex: 0 1 auto;
+  box-sizing: border-box;
+  min-width: 0;
   max-width: 100%;
   width: auto;
   background: linear-gradient(180deg, var(--primary), var(--primary-600));
