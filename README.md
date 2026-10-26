@@ -1,269 +1,219 @@
-⭐ Features of This AI Chat Backend
+# AI Chat Backend
 
-This backend provides regular and uncensored chat, OCR and document Q&A, image analysis, and a multi-agent debugging assistant. It uses Django REST Framework, OpenRouter, and Google Gemini.
+A Django-based AI chat backend with multi-mode chat, OCR/document Q&A, image analysis, and a multi-agent debugging workflow. It supports both regular chat and uncensored model flows, and is designed to work with a separate frontend app in the `chatgpt-frontend/` directory.
 
-🚀 1. Multi-Mode Chat System
-✔ Regular Chat (Mistral through OpenRouter)
+## Overview
 
-Uses `mistralai/mistral-medium-3` through OpenRouter.
+This project provides a backend API for:
 
-The legacy `MISTRAL_MODEL=mistral-medium-latest` value is automatically mapped to this OpenRouter model ID.
+- Regular chat conversations
+- Uncensored chat mode
+- OCR/document text extraction
+- Document-based Q&A
+- Multi-image analysis
+- Session history and rename/delete support
+- Multi-agent code analysis and debugging
 
-Maintains conversation history per session
+The backend uses:
 
-Automatically generates short chat titles
+- Django
+- Django REST Framework
+- OpenRouter for LLM access
+- Google Gemini for OCR and document processing
+- SQLite/PostgreSQL-compatible Django database setup
 
-✔ Uncensored Chat (OpenRouter)
+## Project Structure
 
-Uses OpenRouter model:
-cognitivecomputations/dolphin-mistral-24b-venice-edition
-
-Same features as regular chat, but with uncensored responses. This model may
-incur OpenRouter charges. The legacy `:free` model setting is mapped to the
-supported model ID above.
-
-🧠 2. Multi-Debugger
-
-The Multi-Debugger runs three specialist analyses in parallel and combines them into one response.
-
-Free tier:
-
-- Logic Analyst — Mistral Medium 3 through OpenRouter
-- Syntax & Runtime Inspector — the regular-chat model through OpenRouter
-- Performance & Security Auditor — Gemini 2.5 Flash, with an OpenRouter fallback
-- Synthesizer — the regular-chat model through OpenRouter
-
-Premium tier:
-
-- Logic Analyst — Gemini 4 Argon through OpenRouter
-- Syntax & Runtime Inspector — GPT-5.4 through OpenRouter
-- Performance & Security Auditor — Claude Opus 4.7 through OpenRouter
-- Synthesizer — Claude Sonnet 4.6 through OpenRouter
-
-Each specialist receives a role-specific prompt. Premium model IDs can be overridden with the `DEBUG_PREMIUM_*_MODEL` environment variables listed below. The OpenRouter account must have access to the selected models.
-
-🧠 3. Smart Session Management
-
-Each chat mode uses session tracking:
-
-Create new session
-
-Reuse existing session
-
-Auto-save chat title
-
-Delete sessions
-
-List all sessions with last updated time
-
-Supports separate histories for:
-
-regular mode
-
-uncensored mode
-
-OCR mode
-
-📄 4. OCR (Text Extraction from Files)
-✔ Upload Images / PDFs / TXT
-
-POST /api/ocr/
-
-Backend uses Gemini (gemini-2.5-flash) to:
-
-Read images
-
-Read PDFs
-
-Extract all text
-
-Save extracted text as "system" message in OCR session
-
-Supports:
-
-Multi-page documents
-
-Large images
-
-All file types supported by Gemini
-
-❓ 5. OCR-Based Question Answering
-POST /api/ocr-qa/
-
-Two modes:
-
-If document text exists →
-Answer strictly from the document
-
-If no document uploaded →
-General AI answer
-
-Returns:
-
-Answer
-
-Session ID
-
-Whether answer came from document or general AI
-
-🖼️ 6. Multi-Image AI Analysis
-POST /api/ocr/images/
-
-Upload up to 4 images at once
-
-Uses Gemini Vision (gemini-2.5-flash)
-
-Saves images in Django MEDIA/ folder
-
-Saves user query + assistant response + attachments
-
-Returns:
-
-AI response
-
-saved image URLs
-
-session ID
-
-Great for:
-
-Chart analysis
-
-Homework problem solving
-
-Document screenshots
-
-Comparison tasks
-
-💬 7. Chat History API
-GET /api/history/?session_id=...&mode=...
-
-Returns complete history:
-
-role (user/assistant/system)
-
-content
-
-attachments
-
-mode (regular/uncensored/ocr)
-
-✏️ 8. Rename Chat Session
-PUT /api/sessions/<session_id>/
-
-Rename any chat session with a custom title.
-
-🗑️ 9. Delete Chat Session
-DELETE /api/sessions/<session_id>/
-
-Remove chat and history completely.
-
-🔁 10. Automatic Retry Handling
-
-All LLM calls include:
-
-Retry on API rate limits
-
-Retry on 500-series errors
-
-Respect server retry-after headers
-
-Returns clean error messages
-
-📦 11. Full Media Storage Support
-
-Uploaded images, PDF files, and OCR temp files are:
-
-Safely stored
-
-Cleaned automatically
-
-Returned to user as URLs
-
-🛡️ 12. CORS + Security Setup
-
-CORS allowed for development
-
-Custom headers supported
-
-Django REST Framework for clean API structure
-
-
-
-## Setup
-
-Create a file named .env inside the root directory of your project:
-
+```bash
 chatgpt_clone_backend/
-│── backend/
-│── chat/
-│── chatgpt-frontend/
-│── venv/
-│── .env   ← CREATE THIS FILE HERE
+├── backend/                 # Django project and app logic
+├── chat/                    # app-level chat logic
+├── chatgpt-frontend/        # separate frontend project (React app)
+├── .env                     # local environment variables
+├── manage.py                # Django management entry point
+├── requirements.txt         # Python dependencies
+├── README.md                # project documentation
+└── venv/                    # local virtual environment
+```
 
+> Note: The frontend is kept in a separate repository/folder and is not part of the backend Git history.
 
-Inside this .env file, add the following environment variables:
+## Features
 
-🔐 Environment Variables (.env)
+### 1. Multi-mode chat
 
-Copy & paste this block exactly, then replace the placeholder values with your own API keys.
+- Regular chat through OpenRouter
+- Uncensored chat mode
+- Session-aware conversation history
+- Auto-generated chat titles
+- Reuse existing sessions
+- Delete and rename sessions
 
-# ================================
+### 2. Multi-agent debugging assistant
+
+The backend can run multiple specialist analyzers in parallel and synthesize one final result.
+
+Example specialist roles include:
+
+- Logic Analyst
+- Syntax & Runtime Inspector
+- Performance & Security Auditor
+- Synthesizer
+
+Premium model tiers can be configured with environment variables for advanced model routing.
+
+### 3. OCR and document processing
+
+- Upload images, PDFs, and text files
+- Extract text from documents
+- Save OCR output into a session
+- Answer questions using the document context when available
+- Support for multi-page and multi-image use cases
+
+### 4. Media and image analysis
+
+- Upload up to 4 images at once
+- Process visual content using Gemini Vision
+- Store uploaded media in Django media storage
+- Return saved attachments and URLs to the client
+
+### 5. API convenience features
+
+- Chat history retrieval
+- Session rename/delete
+- Automatic retry handling for OpenRouter/Gemini errors
+- Rate-limit-aware retries
+- Cleaner error handling for upstream API failures
+
+## Tech Stack
+
+- Python
+- Django
+- Django REST Framework
+- OpenRouter
+- Google Gemini
+- React frontend (separate app in `chatgpt-frontend/`)
+
+## Requirements
+
+- Python 3.10+
+- pip
+- virtual environment
+- API keys for OpenRouter and Google Gemini
+
+## Local Setup
+
+1. Clone the repository.
+2. Create and activate a virtual environment.
+3. Install dependencies.
+
+```bash
+python -m venv venv
+source venv/bin/activate   # macOS/Linux
+venv\Scripts\activate      # Windows
+pip install -r requirements.txt
+```
+
+4. Create a `.env` file in the project root.
+5. Add the required environment variables shown below.
+6. Run Django migrations.
+
+```bash
+python manage.py migrate
+```
+
+7. Start the development server.
+
+```bash
+python manage.py runserver
+```
+
+## Environment Variables
+
+Create a `.env` file in the project root with the following values:
+
+```env
 # OpenRouter (Regular Chat Mode)
-# ================================
 OPENROUTER_API_KEY=your_openrouter_api_key_here
-# Regular chat and Free-tier Syntax/Synthesis model on OpenRouter.
-# mistral-medium-latest is accepted as a legacy value and mapped automatically.
 MISTRAL_MODEL=mistralai/mistral-medium-3
 
-# Optional: path to your organization's trusted proxy/root CA certificate.
-# TLS certificate verification remains enabled.
-# OPENROUTER_CA_BUNDLE=C:/certs/organization-root-ca.pem
-
-
-# ================================
 # OpenRouter (Uncensored Chat Mode)
-# ================================
-# This model may incur OpenRouter charges.
 UNCENSORED_MODEL=cognitivecomputations/dolphin-mistral-24b-venice-edition
 
-
-# ================================
 # Google Gemini (OCR + File Processing)
-# ================================
 GOOGLE_API_KEY=your_google_api_key_here
 GEMINI_TEXT_MODEL=gemini-2.5-flash
 GEMINI_FILE_MODEL=gemini-2.5-flash
 
-# Multi-Debugger Free-tier Logic Analyst
+# Multi-Debugger Free-tier model
 DEBUG_MISTRAL_MODEL=mistralai/mistral-medium-3
 
-# Multi-Debugger Premium specialist models
+# Optional premium specialist models
 DEBUG_PREMIUM_LOGIC_MODEL=google/gemini-4-argon
 DEBUG_PREMIUM_SYNTAX_MODEL=openai/gpt-5.4
 DEBUG_PREMIUM_PERF_MODEL=anthropic/claude-opus-4.7
 DEBUG_PREMIUM_SYNTH_MODEL=anthropic/claude-sonnet-4.6
+```
 
-# The DEBUG_PREMIUM_*_MODEL entries are optional; these values are the defaults.
+### Notes
 
-📌 Notes for Developers
-✔ Do NOT wrap keys in quotes
+- Do not wrap keys in quotes.
+- Keep the `.env` file out of version control.
+- If your OpenRouter account uses an internal certificate chain, you can optionally set `OPENROUTER_CA_BUNDLE`.
 
-Correct:
+## Common API Endpoints
 
-OPENROUTER_API_KEY=your_openrouter_api_key_here
+Examples of main API flows include:
 
+- `POST /api/chat/` — regular chat
+- `POST /api/uncensored/` — uncensored model chat
+- `POST /api/ocr/` — image/PDF/text extraction
+- `POST /api/ocr-qa/` — document Q&A
+- `POST /api/ocr/images/` — multi-image analysis
+- `GET /api/history/` — session history
+- `PUT /api/sessions/<session_id>/` — rename session
+- `DELETE /api/sessions/<session_id>/` — delete session
 
-Incorrect:
+The exact endpoint names may vary slightly depending on your app version, so check the project route files and Django app URLs before integrating externally.
 
-OPENROUTER_API_KEY="your_openrouter_api_key_here"
+## Authentication and Session Behavior
 
-✔ Make sure .env is in your project root
+This project uses Django session-based authentication patterns and has separate handling for admin and customer-facing flows. If the frontend and Django admin share the same browser session space without separation, login states can collide. In production, ensure that admin and frontend cookies are isolated using separate names and paths.
 
-Same level as manage.py.
+## Development Notes
 
-✔ Add .env to .gitignore
+- Frontend is not included in the same Git branch as the backend in this setup.
+- For local frontend development, run the separate React app in `chatgpt-frontend/`.
+- Keep the backend and frontend deployed independently when using separate hosting providers or branch strategies.
 
-(Already recommended — prevents exposing your API keys)
+## Security
 
-.env
+- Store secrets in environment variables, not in source code.
+- Do not commit `.env` files.
+- Restrict admin access and use strong credentials in production.
+- Review CORS and session cookie settings before public deployment.
+
+## License
+
+This project is intended for internal or project-specific use. Add your licensing details here if you plan to distribute it publicly.
+
+## Contributing
+
+Contributions are welcome. For larger changes, open an issue or discuss the intended behavior before making a substantial PR.
+
+## Support
+
+For environment issues, check:
+
+- `.env` values
+- Python dependencies
+- model API keys
+- Django settings and session/cookie configuration
+- frontend/backend deployment URLs
+
+## Quick Tips
+
+- Keep `.env` in the project root, next to `manage.py`.
+- Add `.env` to `.gitignore` to avoid committing secrets.
+- For production, isolate frontend and admin cookies to avoid session collisions.
+
