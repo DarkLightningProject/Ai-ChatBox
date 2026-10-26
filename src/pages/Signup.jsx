@@ -62,13 +62,13 @@ export default function Signup({ theme = "light", onToggleTheme }) {
   if (success) {
     return (
       <main className={`auth-container auth-page ${theme}-theme`}>
-        <Link className="auth-home-link" to="/" aria-label="AI ChatBox home">
+        <Link className="auth-home-link" to="/" aria-label="conversa Ai home">
           <span className="auth-brand-mark" aria-hidden="true">✳</span>
-          <span>AI ChatBox</span>
+          <span>conversa Ai</span>
         </Link>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <div className="auth-layout">
-          <section className="auth-showcase" aria-label="Welcome to AI ChatBox">
+          <section className="auth-showcase" aria-label="Welcome to conversa Ai">
             <span className="auth-showcase-eyebrow"><span /> A SPACE FOR YOUR NEXT THOUGHT</span>
             <h1>Your next<br />chapter starts<br /><span>with a hello.</span></h1>
             <p>Make room for good questions, fresh ideas, and the occasional “wait, that actually worked.”</p>
@@ -133,13 +133,13 @@ export default function Signup({ theme = "light", onToggleTheme }) {
 
   return (
     <main className={`auth-container auth-page ${theme}-theme`}>
-      <Link className="auth-home-link" to="/" aria-label="AI ChatBox home">
+      <Link className="auth-home-link" to="/" aria-label="conversa Ai home">
         <span className="auth-brand-mark" aria-hidden="true">✳</span>
-        <span>AI ChatBox</span>
+        <span>conversa Ai</span>
       </Link>
       <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       <div className="auth-layout">
-        <section className="auth-showcase" aria-label="Welcome to AI ChatBox">
+        <section className="auth-showcase" aria-label="Welcome to conversa Ai">
           <span className="auth-showcase-eyebrow"><span /> A SPACE FOR YOUR NEXT THOUGHT</span>
           <h1>Your next<br />chapter starts<br /><span>with a hello.</span></h1>
           <p>Make room for good questions, fresh ideas, and the occasional “wait, that actually worked.”</p>

@@ -103,7 +103,7 @@ export default function Checkout({
         key: key_id,               // rzp_test_... — safe to expose
         amount,                    // paise, echoed from backend
         currency,
-        name: "AI ChatBox",
+        name: "conversa Ai",
         description: planName,
         order_id,                  // issued by backend — not generated here
 

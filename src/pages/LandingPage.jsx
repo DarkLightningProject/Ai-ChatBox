@@ -161,9 +161,9 @@ export default function LandingPage({ theme = "light", onToggleTheme }) {
     <main className={`landing-page ${theme}-theme`}>
       <div className="landing-grain" aria-hidden="true" />
       <nav className="landing-nav" aria-label="Main navigation">
-        <Link className="landing-brand" to="/" aria-label="AI ChatBox home">
+        <Link className="landing-brand" to="/" aria-label="conversa Ai home">
           <span className="landing-brand-mark" aria-hidden="true">✳</span>
-          <span>AI ChatBox</span>
+          <span>conversa Ai</span>
         </Link>
         <div className="landing-nav-links">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
@@ -209,7 +209,7 @@ export default function LandingPage({ theme = "light", onToggleTheme }) {
         <div
           className="landing-visual"
           ref={heroVisualRef}
-          aria-label="A preview of an AI ChatBox conversation"
+          aria-label="A preview of a conversa Ai conversation"
           onPointerMove={handleVisualPointerMove}
           onPointerLeave={resetVisualPointer}
         >
@@ -222,7 +222,7 @@ export default function LandingPage({ theme = "light", onToggleTheme }) {
             <div className="landing-preview-topbar">
               <div className="landing-preview-brand">
                 <span className="landing-preview-logo">✳</span>
-                <span>AI ChatBox</span>
+                <span>conversa Ai</span>
               </div>
               <span className="landing-preview-menu" aria-hidden="true">•••</span>
             </div>
@@ -299,7 +299,7 @@ export default function LandingPage({ theme = "light", onToggleTheme }) {
       <footer className="landing-footer">
         <Link className="landing-brand" to="/">
           <span className="landing-brand-mark" aria-hidden="true">✳</span>
-          <span>AI ChatBox</span>
+          <span>conversa Ai</span>
         </Link>
         <span>A space for your next thought.</span>
         <div><Link to="/login">Log in</Link><Link to="/signup">Create account</Link></div>

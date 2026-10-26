@@ -57,14 +57,14 @@ export default function VerifyEmail({ theme = "light", onToggleTheme }) {
 
   return (
     <main className={`auth-container auth-page ${theme}-theme`}>
-      <Link className="auth-home-link" to="/" aria-label="AI ChatBox home">
+      <Link className="auth-home-link" to="/" aria-label="conversa Ai home">
         <span className="auth-brand-mark" aria-hidden="true">✳</span>
-        <span>AI ChatBox</span>
+        <span>conversa Ai</span>
       </Link>
       <ThemeToggle theme={theme} onToggle={onToggleTheme} />
 
       <div className="auth-layout">
-        <section className="auth-showcase" aria-label="AI ChatBox email verification">
+        <section className="auth-showcase" aria-label="conversa Ai email verification">
           <span className="auth-showcase-eyebrow"><span /> A SPACE FOR YOUR NEXT THOUGHT</span>
           <h1>One small step<br />to a whole world<br /><span>of ideas.</span></h1>
           <p>Verify your email to activate your account and make room for good questions, fresh ideas, and conversations that go somewhere.</p>
@@ -95,7 +95,7 @@ export default function VerifyEmail({ theme = "light", onToggleTheme }) {
               <div className="verify-icon verify-icon--success" aria-hidden="true">✓</div>
               <span className="auth-card-kicker">YOU’RE ALL SET</span>
               <h2 id="verify-heading">Email verified!</h2>
-              <p className="subtitle">Your account is active. Welcome to AI ChatBox.</p>
+              <p className="subtitle">Your account is active. Welcome to conversa Ai.</p>
               <p className="subtitle verify-countdown">
                 Taking you to sign in in <strong>{countdown}s</strong>…
               </p>

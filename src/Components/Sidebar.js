@@ -498,7 +498,7 @@ useEffect(() => {
           className="settings-item"
           onClick={() => { setSettingsOpen(false); navigate("/about"); }}
         >
-          ✦ About AI ChatBox
+          ✦ About conversa Ai
         </button>
       </section>
 

@@ -27,14 +27,14 @@ export default function ForgotPassword({ theme = "light", onToggleTheme }) {
 
   return (
     <main className={`auth-container auth-page ${theme}-theme`}>
-      <Link className="auth-home-link" to="/" aria-label="AI ChatBox home">
+      <Link className="auth-home-link" to="/" aria-label="conversa Ai home">
         <span className="auth-brand-mark" aria-hidden="true">✳</span>
-        <span>AI ChatBox</span>
+        <span>conversa Ai</span>
       </Link>
       <ThemeToggle theme={theme} onToggle={onToggleTheme} />
 
       <div className="auth-layout">
-        <section className="auth-showcase" aria-label="AI ChatBox account recovery">
+        <section className="auth-showcase" aria-label="conversa Ai account recovery">
           <span className="auth-showcase-eyebrow"><span /> A SPACE FOR YOUR NEXT THOUGHT</span>
           <h1>A fresh start<br />is just around<br /><span>the corner.</span></h1>
           <p>We’ll help you get back to your conversations. Enter your account email and we’ll send you a secure reset link.</p>

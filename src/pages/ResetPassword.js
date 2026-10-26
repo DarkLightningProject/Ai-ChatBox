@@ -53,14 +53,14 @@ export default function ResetPassword({ theme = "light", onToggleTheme }) {
 
   return (
     <main className={`auth-container auth-page ${theme}-theme`}>
-      <Link className="auth-home-link" to="/" aria-label="AI ChatBox home">
+      <Link className="auth-home-link" to="/" aria-label="conversa Ai home">
         <span className="auth-brand-mark" aria-hidden="true">✳</span>
-        <span>AI ChatBox</span>
+        <span>conversa Ai</span>
       </Link>
       <ThemeToggle theme={theme} onToggle={onToggleTheme} />
 
       <div className="auth-layout">
-        <section className="auth-showcase" aria-label="AI ChatBox password reset">
+        <section className="auth-showcase" aria-label="conversa Ai password reset">
           <span className="auth-showcase-eyebrow"><span /> A SPACE FOR YOUR NEXT THOUGHT</span>
           <h1>A new key<br />to unlock<br /><span>what’s next.</span></h1>
           <p>Choose a strong new password and get right back to your conversations, ideas, and work.</p>

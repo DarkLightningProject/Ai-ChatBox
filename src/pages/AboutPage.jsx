@@ -47,9 +47,9 @@ export default function AboutPage({ theme = "light", onToggleTheme }) {
   return (
     <main className={`about-page ${theme}-theme`}>
       <nav className="about-nav" aria-label="About page navigation">
-        <Link className="about-brand" to="/" aria-label="AI ChatBox home">
+        <Link className="about-brand" to="/" aria-label="conversa Ai home">
           <span className="about-brand-mark" aria-hidden="true">✳</span>
-          <span>AI ChatBox</span>
+          <span>conversa Ai</span>
         </Link>
         <div className="about-nav-actions">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
@@ -62,7 +62,7 @@ export default function AboutPage({ theme = "light", onToggleTheme }) {
         <span className="about-kicker"><span aria-hidden="true" /> A LITTLE ABOUT THIS SPACE</span>
         <h1 id="about-heading">Curiosity deserves<br />a <span>good conversation.</span></h1>
         <p>
-          AI ChatBox is a prototype for exploring ideas with AI—a place to ask,
+          conversa Ai is a prototype for exploring ideas with AI—a place to ask,
           create, untangle, and keep moving.
         </p>
         <p className="about-prototype-note" role="note">
