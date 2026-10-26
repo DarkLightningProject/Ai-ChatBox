@@ -1,3 +1,7 @@
+# Note
+Dont add any sensitive information only dummy information im not responisble for any leak data it is just a prototype
+
+
 # AI Chat Backend
 
 A Django-based AI chat backend with multi-mode chat, OCR/document Q&A, image analysis, and a multi-agent debugging workflow. It supports both regular chat and uncensored model flows, and is designed to work with a separate frontend app in the `chatgpt-frontend/` directory.
