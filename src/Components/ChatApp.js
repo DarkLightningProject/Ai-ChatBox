@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import "../styles/chat.css";
+import TypingIndicator from "./TypingIndicator";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -181,17 +182,17 @@ const DEFAULT_OCR_QUESTION =
 /* -------------------- Agent Panels (Multi-Debugger) ------------------ */
 const AGENT_PANEL_META = [
   { key: "logic_analyst",         icon: "🔍", label: "Logic Analyst",
-    free: "Mistral",           premium: "Gemini 2.5 Pro" },
+    free: "Mistral Medium 3",  premium: "Gemini 4 Argon" },
   { key: "syntax_inspector",      icon: "🛠️", label: "Syntax & Runtime Inspector",
-    free: "Mistral",            premium: "GPT-4.1" },
+    free: "Mistral Medium 3", premium: "GPT-5.4" },
   { key: "perf_security_auditor", icon: "⚡", label: "Perf & Security Auditor",
-    free: "Gemini 2.5 Flash",  premium: "Claude Opus 4.5" },
+    free: "Gemini 2.5 Flash",  premium: "Claude Opus 4.7" },
 ];
 
 function AgentPanel({ agents, tier = "free" }) {
   const [openKey, setOpenKey] = useState(null);
   if (!agents) return null;
-  const synthModel = tier === "premium" ? "Claude Sonnet 4.5" : "Mistral";
+  const synthModel = tier === "premium" ? "Claude Sonnet 4.6" : "Mistral Medium 3";
 
   return (
     <div className="agent-panels">
@@ -210,7 +211,7 @@ function AgentPanel({ agents, tier = "free" }) {
             <span className="agent-panel__model">
               {tier === "premium"
                 ? premium
-                : (agents[key] || "").startsWith("__GEMINI_UNAVAILABLE__") ? "Mistral (fallback)" : free}
+                : (agents[key] || "").startsWith("__GEMINI_UNAVAILABLE__") ? "Mistral Medium Latest (fallback)" : free}
             </span>
             <span className="agent-panel__chevron">{openKey === key ? "▲" : "▼"}</span>
           </button>
@@ -252,12 +253,13 @@ function getActiveBan(bans, mode, tier) {
   return null;
 }
 
-export default function ChatApp({ sessionId, fallbackSessionId, mode, setSessionId, theme, isPremium = false, bans, onBanDetected, onSessionTitled, onSessionCreated, toggleSidebar, emailVerified = true }) {
+export default function ChatApp({ sessionId, fallbackSessionId, mode, setSessionId, theme, typingAnimation = "sparkle", isPremium = false, bans, onBanDetected, onSessionTitled, onSessionCreated, onHistoryLoading, toggleSidebar, emailVerified = true }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [queuedImages, setQueuedImages] = useState([]); // local queue (before send)
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [debugTier, setDebugTier] = useState("free"); // "free" | "premium"
   const listRef = useRef(null);
   const textareaRef = useRef(null);
@@ -266,6 +268,7 @@ export default function ChatApp({ sessionId, fallbackSessionId, mode, setSession
   // Tracks sessions created mid-flight so the history effect doesn't overwrite
   // in-memory messages (which carry the `agents` field) with DB history that lacks it.
   const skipHistoryForRef = useRef(null);
+  const historyRequestRef = useRef(0);
   const [zoomSrc, setZoomSrc] = useState(null);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [editingIdx, setEditingIdx] = useState(null);
@@ -276,6 +279,7 @@ export default function ChatApp({ sessionId, fallbackSessionId, mode, setSession
 
   const [emailNotVerified, setEmailNotVerified] = useState(!emailVerified);
   const [resendState, setResendState] = useState("idle"); // idle | sending | sent | failed
+  const [resendError, setResendError] = useState("");
 
   useEffect(() => {
     if (emailVerified) setEmailNotVerified(false);
@@ -291,11 +295,15 @@ export default function ChatApp({ sessionId, fallbackSessionId, mode, setSession
 
   const handleResendVerification = async () => {
     setResendState("sending");
+    setResendError("");
     try {
       await api.post("/api/auth/resend-verification/");
       setResendState("sent");
-    } catch {
+    } catch (err) {
       setResendState("failed");
+      setResendError(
+        err.response?.data?.error || "Could not send the verification email. Please try again."
+      );
     }
   };
 
@@ -496,6 +504,9 @@ useEffect(() => {
   }
 
   const ctrl = new AbortController();
+  const requestId = ++historyRequestRef.current;
+  setHistoryLoading(true);
+  onHistoryLoading?.(sessionId, true);
 
   api
     .get(`/api/history/`, {
@@ -569,10 +580,21 @@ useEffect(() => {
       if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
       console.error("Failed to load history:", err);
       setMessages([{ sender: "bot", text: "❌ Failed to load chat history. Please refresh the page." }]);
+    })
+    .finally(() => {
+      if (historyRequestRef.current !== requestId) return;
+      setHistoryLoading(false);
+      onHistoryLoading?.(sessionId, false);
     });
 
-  return () => ctrl.abort();
-}, [sessionId, mode]);
+  return () => {
+    ctrl.abort();
+    if (historyRequestRef.current !== requestId) return;
+    historyRequestRef.current += 1;
+    setHistoryLoading(false);
+    onHistoryLoading?.(sessionId, false);
+  };
+}, [sessionId, mode, onHistoryLoading]);
 
 
   /* ---- Push a user bubble immediately with local blob URLs ---- */
@@ -967,7 +989,7 @@ setMessages((prev) => {
             <button
               className={`tier-btn ${debugTier === "free" ? "active" : ""}`}
               onClick={() => setDebugTier("free")}
-              title="Free: Gemini Flash (Logic + Perf) · Mistral (Syntax + Synthesis)"
+              title="Free: Mistral Medium 3 (Logic) · Mistral Medium Latest (Syntax + Synthesis) · Gemini Flash (Perf)"
             >
               🆓 Free
             </button>
@@ -977,7 +999,7 @@ setMessages((prev) => {
                 if (!isPremium) { navigate("/checkout"); return; }
                 setDebugTier("premium");
               }}
-              title={isPremium ? "Premium: Gemini 2.5 Pro · GPT-4.1 · Claude Opus · Claude Sonnet" : "Upgrade to Pro to unlock premium tier"}
+              title={isPremium ? "Premium: Gemini 4 Argon (Logic) · GPT-5.4 (Syntax) · Claude Opus 4.7 (Perf/Security) · Claude Sonnet 4.6 (Synthesis)" : "Upgrade to Pro to unlock premium tier"}
             >
               {isPremium ? "⭐" : "🔒"} Premium
             </button>
@@ -1006,14 +1028,25 @@ setMessages((prev) => {
             {resendState === "sent" ? (
               <span className="ban-banner__expiry" style={{ color: "#15803d" }}>Verification email sent! Check your inbox.</span>
             ) : (
-              <button
-                className="ban-banner__expiry"
-                onClick={handleResendVerification}
-                disabled={resendState === "sending"}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#2c5364", textDecoration: "underline", padding: 0, font: "inherit" }}
-              >
-                {resendState === "sending" ? "Sending…" : resendState === "failed" ? "Failed — try again" : "Resend verification email"}
-              </button>
+              <>
+                {resendState === "failed" && (
+                  <span className="ban-banner__expiry" role="alert" style={{ color: "#92400e" }}>
+                    {resendError}
+                  </span>
+                )}
+                <button
+                  className="ban-banner__expiry"
+                  onClick={handleResendVerification}
+                  disabled={resendState === "sending"}
+                  style={{ background: "none", border: "none", cursor: resendState === "sending" ? "not-allowed" : "pointer", color: "#2c5364", textDecoration: "underline", padding: 0, font: "inherit" }}
+                >
+                  {resendState === "sending"
+                    ? "Sending…"
+                    : resendState === "failed"
+                    ? "Try resending"
+                    : "Resend verification email"}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1046,9 +1079,15 @@ setMessages((prev) => {
       )}
 
       <section className="chat-history" ref={listRef} role="log" aria-live="polite">
-        {messages.length === 0 && !loading && (
+        {historyLoading && (
+          <div className="history-loading" role="status" aria-live="polite">
+            <span className="ui-spinner" aria-hidden="true" />
+            <span>Opening conversation…</span>
+          </div>
+        )}
+        {messages.length === 0 && !loading && !historyLoading && (
           <div className="welcome-message">
-            <h3>Welcome to Conversa</h3>
+            <h3>A little more human in your corner.</h3>
             <p>
               {mode === "ocr"
                 ? "Click ＋ to add up to 4 images, then type a prompt and press Send."
@@ -1234,10 +1273,13 @@ setMessages((prev) => {
         </button>
       </footer>
         {loading && (
-          <div className="typing" role="status" aria-live="assertive">
-            <div className="typing-indicator">
-              <span></span><span></span><span></span>
-            </div>
+          <div
+            className="typing"
+            role="status"
+            aria-live="assertive"
+            aria-label="Assistant is responding"
+          >
+            <TypingIndicator variant={typingAnimation} />
           </div>
         )}
       </section>
@@ -1245,16 +1287,21 @@ setMessages((prev) => {
       {/* Lightbox — rendered once outside the messages loop */}
       {zoomSrc && (
         <div
-          className="lightbox"
+          className={`lightbox ${theme}-theme`}
           role="dialog"
           aria-modal="true"
+          aria-label="Image preview"
           onClick={() => setZoomSrc(null)}
         >
           <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
-            <img src={zoomSrc} alt="zoomed" />
+            <img src={zoomSrc} alt="Preview" />
             <div className="lightbox-actions">
-              <button className="btn" onClick={() => forceDownload(zoomSrc)}>Download</button>
-              <button className="btn" onClick={() => setZoomSrc(null)}>Close</button>
+              <button className="lightbox-download" onClick={() => forceDownload(zoomSrc)}>
+                Download image
+              </button>
+              <button className="lightbox-close" onClick={() => setZoomSrc(null)}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>

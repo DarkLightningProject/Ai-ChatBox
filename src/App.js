@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 // import axios from "axios";
 import ChatApp from "./Components/ChatApp";
 import Sidebar from "./Components/Sidebar";
@@ -14,6 +14,8 @@ import Checkout from "./pages/Checkout";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import Billing from "./pages/Billing";
 import VerifyEmail from "./pages/VerifyEmail";
+import LandingPage from "./pages/LandingPage";
+import AboutPage from "./pages/AboutPage";
 import api from "./api";
 
 // import ChatWrapper from "./ChatWrapper";
@@ -31,7 +33,7 @@ const clamp = (s, n = 60) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
    ChatWrapper
    - Manages sidebar, sessions, and chat
 -------------------------------- */
-function ChatWrapper({ mode, setMode, theme, setTheme, initialData }) {
+function ChatWrapper({ mode, setMode, theme, setTheme, typingAnimation, setTypingAnimation, initialData }) {
   const { isPremium, bans: serverBans, emailVerified } = useUserStatus(initialData);
   // localBans merges in any 403-banned responses received mid-session
   const [localBans, setLocalBans] = useState({});
@@ -43,13 +45,25 @@ function ChatWrapper({ mode, setMode, theme, setTheme, initialData }) {
   // Responsive
   const initialIsMobile =
     typeof window !== "undefined" ? window.innerWidth <= 768 : false;
-  const [isMobile, setIsMobile] = useState(initialIsMobile);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 768px)").matches
+      : initialIsMobile
+  );
   const [sidebarOpen, setSidebarOpen] = useState(
     typeof window !== "undefined" ? window.innerWidth > 768 : true
   );
 
   // sessions state
   const [sessions, setSessions] = useState([]);
+  const [pendingAction, setPendingAction] = useState(null);
+
+  const handleHistoryLoading = useCallback((historySessionId, isLoading) => {
+    setPendingAction((current) => {
+      if (isLoading) return { type: "history", sessionId: historySessionId };
+      return current?.sessionId === historySessionId ? null : current;
+    });
+  }, []);
 
   /* ---------- Handlers ---------- */
 const lastCreatedRef = React.useRef(null);
@@ -71,6 +85,8 @@ const handleSessionCreated = (id, title, createdMode = mode) => {
   navigate(`/chat/${id}`);
 };
 const openSession = (id, sessionMode) => {
+  if (id === sessionId) return;
+  setPendingAction({ type: "session", sessionId: id });
   // set the mode silently for this session (no extra navigation)
   if (sessionMode && sessionMode !== mode) setMode(sessionMode);
   navigate(`/chat/${id}`);
@@ -78,6 +94,7 @@ const openSession = (id, sessionMode) => {
 };
 
 const handleModeChange = async (newMode) => {
+  setPendingAction({ type: "mode" });
   setMode(newMode);
   skipFetchRef.current = true; // suppress the useEffect fetch triggered by mode change
   try {
@@ -87,12 +104,14 @@ const handleModeChange = async (newMode) => {
     if (list.length > 0) {
       navigate(`/chat/${list[0].session_id}`);
     } else {
-      navigate("/");
+      navigate("/app");
+      setPendingAction(null);
     }
   } catch (err) {
     skipFetchRef.current = false;
+    setPendingAction(null);
     console.error("Failed to fetch sessions on mode change:", err);
-    navigate("/");
+    navigate("/app");
   }
 };
 
@@ -133,7 +152,7 @@ const handleSessionTitled = React.useCallback((id, newTitleRaw) => {
   const handleDeleted = (deletedId) => {
     setSessions((prev) => prev.filter((s) => s.session_id !== deletedId));
     if (deletedId === sessionId) {
-      navigate("/"); // go home if current session deleted
+      navigate("/app"); // go home if current session deleted
     }
   };
 
@@ -159,6 +178,7 @@ const handleSessionTitled = React.useCallback((id, newTitleRaw) => {
 const handleNewSession = async () => {
   if (creatingRef.current) return;
   creatingRef.current = true;
+  setPendingAction({ type: "new" });
 
   try {
     const r = await api.post("/api/sessions/new/", {
@@ -174,7 +194,9 @@ const handleNewSession = async () => {
     );
 
     navigate(`/chat/${r.data.session_id}`);
+    setPendingAction({ type: "session", sessionId: r.data.session_id });
   } catch (e) {
+    setPendingAction(null);
     console.error("Failed to create new session:", e);
   } finally {
     creatingRef.current = false;
@@ -182,12 +204,26 @@ const handleNewSession = async () => {
 };
   /* ---------- Effects ---------- */
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    const mobileQuery = window.matchMedia("(max-width: 768px)");
+    const onResize = () => setIsMobile(mobileQuery.matches);
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    mobileQuery.addEventListener?.("change", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      mobileQuery.removeEventListener?.("change", onResize);
+    };
   }, []);
 
   useEffect(() => setSidebarOpen(!isMobile), [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile || !sidebarOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isMobile, sidebarOpen]);
 
   useEffect(() => {
     document.body.classList.remove("dark-theme", "light-theme");
@@ -244,10 +280,19 @@ const handleNewSession = async () => {
   return (
     <>
       <div className={`app-shell ${theme}-theme`}>
+        {isMobile && sidebarOpen && (
+          <button
+            type="button"
+            className="sidebar-backdrop"
+            aria-label="Close navigation menu"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
         {sidebarOpen && (
           <Sidebar
             sessions={sessions}
             onSessionSelect={(id, m) => openSession(id, m)}
+            pendingAction={pendingAction}
             currentSession={sessionId}
             onModeChange={handleModeChange}
             currentMode={mode}
@@ -255,6 +300,8 @@ const handleNewSession = async () => {
             onDeleted={handleDeleted}
             onRenamed={handleRenamed}
             theme={theme}
+            typingAnimation={typingAnimation}
+            setTypingAnimation={setTypingAnimation}
             isPremium={isPremium}
             bans={bans}
             toggleTheme={() => {
@@ -272,6 +319,7 @@ const handleNewSession = async () => {
             fallbackSessionId={!sessionId && sessions.length > 0 ? sessions[0].session_id : undefined}
             mode={mode}
             theme={theme}
+            typingAnimation={typingAnimation}
             isPremium={isPremium}
             bans={bans}
             onBanDetected={(banInfo) => setLocalBans(prev => ({
@@ -281,6 +329,7 @@ const handleNewSession = async () => {
             setSessionId={(id) => navigate(`/chat/${id}`)}
             onSessionTitled={handleSessionTitled}
             onSessionCreated={handleSessionCreated}
+            onHistoryLoading={handleHistoryLoading}
             toggleSidebar={() => setSidebarOpen((o) => !o)}
             emailVerified={emailVerified}
           />
@@ -326,20 +375,32 @@ function useUserStatus(initialData) {
   const [isPremium, setIsPremium] = useState(initialData?.is_premium === true);
   const [bans, setBans] = useState(initialData?.bans || {});
   const [emailVerified, setEmailVerified] = useState(initialData?.email_verified === true);
+  const refreshInProgress = useRef(false);
 
-  // Keep in sync if the user upgrades/gets banned/verified mid-session (periodic refresh).
   useEffect(() => {
     const refresh = () => {
+      if (document.visibilityState === "hidden" || refreshInProgress.current) return;
+      refreshInProgress.current = true;
       api.get("/api/auth/me/").then(res => {
         localStorage.setItem("user", JSON.stringify(res.data));
         setIsPremium(res.data.is_premium === true);
         setBans(res.data.bans || {});
         setEmailVerified(res.data.email_verified === true);
-      }).catch(() => {});
+      }).catch(() => {}).finally(() => {
+        refreshInProgress.current = false;
+      });
     };
-    // Re-fetch every 5 minutes in the background to pick up admin changes.
-    const id = setInterval(refresh, 5 * 60 * 1000);
-    return () => clearInterval(id);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const id = setInterval(refresh, 30 * 1000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, []);
 
   return { isPremium, bans, emailVerified };
@@ -348,15 +409,51 @@ function useUserStatus(initialData) {
 export default function App() {
   const [mode, setMode] = useState(localStorage.getItem("mode") || "regular");
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
+  const [typingAnimation, setTypingAnimation] = useState(() => {
+    const saved = localStorage.getItem("typingAnimation");
+    return ["sparkle", "pulse", "starburst", "dots"].includes(saved) ? saved : "sparkle";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((current) => (current === "light" ? "dark" : "light"));
+  };
 
   return (
     <Routes>
+      <Route
+        path="/"
+        element={<LandingPage theme={theme} onToggleTheme={toggleTheme} />}
+      />
+      <Route
+        path="/about"
+        element={<AboutPage theme={theme} onToggleTheme={toggleTheme} />}
+      />
+
       {/* ---------- Auth Routes ---------- */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/forgot" element={<ForgotPassword />} />
-      <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
-      <Route path="/verify-email/:uid/:token" element={<VerifyEmail />} />
+      <Route
+        path="/login"
+        element={<Login theme={theme} onToggleTheme={toggleTheme} />}
+      />
+      <Route
+        path="/signup"
+        element={<Signup theme={theme} onToggleTheme={toggleTheme} />}
+      />
+      <Route
+        path="/forgot"
+        element={<ForgotPassword theme={theme} onToggleTheme={toggleTheme} />}
+      />
+      <Route
+        path="/reset-password/:uid/:token"
+        element={<ResetPassword theme={theme} onToggleTheme={toggleTheme} />}
+      />
+      <Route
+        path="/verify-email/:uid/:token"
+        element={<VerifyEmail theme={theme} onToggleTheme={toggleTheme} />}
+      />
 
       {/* ---------- Payment Routes (protected) ---------- */}
       <Route
@@ -384,9 +481,11 @@ export default function App() {
         }
       />
 
+      {/* Keep the old empty chat URL useful and send it to the chat home. */}
+      <Route path="/chat/" element={<Navigate to="/app" replace />} />
 
       {/* ---------- Protected Chat Routes ---------- */}
-      {/* Single layout route keeps ChatWrapper mounted across "/" and "/chat/:sessionId"
+      {/* Single layout route keeps ChatWrapper mounted across "/app" and "/chat/:sessionId"
           so sessions state survives navigation and never causes duplicate sessions. */}
       <Route
         element={
@@ -397,14 +496,19 @@ export default function App() {
                 setMode={setMode}
                 theme={theme}
                 setTheme={setTheme}
+                typingAnimation={typingAnimation}
+                setTypingAnimation={(next) => {
+                  setTypingAnimation(next);
+                  localStorage.setItem("typingAnimation", next);
+                }}
                 initialData={userData}
               />
             )}
           </RequireAuth>
         }
       >
-        <Route index />
-        <Route path="/chat/:sessionId" />
+        <Route path="/app" element={<Outlet />} />
+        <Route path="/chat/:sessionId" element={<Outlet />} />
       </Route>
     </Routes>
   );

@@ -10,6 +10,12 @@ const TABS = [
 ];
 
 const _MODEL_DISPLAY = [
+  ["gemini-4-argon",    "Gemini 4 Argon"],
+  ["gpt-5.4",           "GPT-5.4"],
+  ["claude-opus-4.7",   "Claude Opus 4.7"],
+  ["claude-opus-4-7",   "Claude Opus 4.7"],
+  ["claude-sonnet-4.6", "Claude Sonnet 4.6"],
+  ["claude-sonnet-4-6", "Claude Sonnet 4.6"],
   ["gpt-4.1",           "GPT-4.1"],
   ["gpt-4o-mini",       "GPT-4o Mini"],
   ["gpt-4o",            "GPT-4o"],

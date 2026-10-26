@@ -51,7 +51,7 @@ export default function PaymentSuccess() {
             >
               Try Again
             </button>
-            <Link to="/" className="result-action-btn secondary">
+            <Link to="/app" className="result-action-btn secondary">
               Back to Home
             </Link>
           </div>
@@ -86,7 +86,7 @@ export default function PaymentSuccess() {
           )}
         </div>
 
-        <Link to="/" className="result-action-btn">
+        <Link to="/app" className="result-action-btn">
           Continue to App
         </Link>
       </div>

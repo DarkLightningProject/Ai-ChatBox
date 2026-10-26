@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import "../styles/layout.css";
 import api from "../api";
 import { logout,deleteAccount } from "../api/auth";
 import ProfileModal from "./ProfileModal";
+import TypingIndicator, { TYPING_INDICATOR_OPTIONS } from "./TypingIndicator";
 
 
 
@@ -67,6 +69,47 @@ const SessionTitle = memo(function SessionTitle({ title, justRenamed, onDoubleCl
 
 const PREMIUM_MODES = new Set([]); // no mode is fully locked — only premium tier inside Multi-Debugger
 
+function SidebarIcon({ name }) {
+  const paths = {
+    regular: <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l1.8-3.2A7.5 7.5 0 1 1 20 11.5Z" />,
+    uncensored: <path d="M12.1 22c4.2 0 7-2.8 7-6.6 0-2.6-1.4-4.5-3.7-6.6-.1 2-1.1 3.1-2.1 3.6.2-3.7-1.7-7-5.2-9.4.4 4-1 5.8-2.4 7.7C4.5 12.3 4 13.8 4 15.6 4 19.4 7.2 22 12.1 22Z" />,
+    multi_debugger: (
+      <>
+        <path d="M8 8V6.5a2.5 2.5 0 1 0-2.5 2.5H8Zm0 0h8m0 0V7a2.5 2.5 0 1 1 2.5 2.5H16Zm0 0v8m0 0h1.5a2.5 2.5 0 1 1-2.5 2.5V16Zm0 0H8m0 0v1.5a2.5 2.5 0 1 1-2.5-2.5H8Zm0 0V8Z" />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M12 3v9" />
+        <path d="M7.1 5.8a8 8 0 1 0 9.8 0" />
+      </>
+    ),
+    settings: (
+      <>
+        <path d="M4 7h9m4 0h3M4 17h3m4 0h9" />
+        <circle cx="15" cy="7" r="2" />
+        <circle cx="9" cy="17" r="2" />
+      </>
+    ),
+  };
+
+  return (
+    <svg
+      className={`sidebar-icon sidebar-icon-${name}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {paths[name]}
+    </svg>
+  );
+}
+
 // Returns true if bans dict indicates this mode (or full_account) is banned
 function isModeInBans(bans, modeKey) {
   if (!bans) return false;
@@ -76,6 +119,7 @@ function isModeInBans(bans, modeKey) {
 function Sidebar({
   sessions,
   onSessionSelect,
+  pendingAction,
   currentSession,
   onModeChange,
   currentMode,
@@ -84,13 +128,18 @@ function Sidebar({
   onRenamed,
   theme,
   toggleTheme,
+  typingAnimation,
+  setTypingAnimation,
   isPremium = false,
   bans = {},
 }) {
   const [menuOpen, setMenuOpen] = useState(null);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const navigate = useNavigate();
   const menuRef = useRef();
+  const modeMenuRef = useRef();
+  const modeTriggerRef = useRef();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -98,23 +147,40 @@ function Sidebar({
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setMenuOpen(null);
       }
+      if (modeMenuRef.current && !modeMenuRef.current.contains(e.target)) {
+        setModeMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleLogout = async () => {
-  try {
-    await logout(); // calls /api/auth/logout/
-  } catch (err) {
-    console.error("Logout failed:", err);
-  } finally {
-    // clear client state
-    localStorage.removeItem("user");
-    navigate("/login");
-  }
-};
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch (err) {
+      console.error("Logout failed:", err);
+    } finally {
+      localStorage.removeItem("user");
+      navigate("/login");
+    }
+  };
 
+  const selectMode = (val) => {
+    if (pendingAction?.type === "mode") return;
+    setModeMenuOpen(false);
+    if (PREMIUM_MODES.has(val) && !isPremium) {
+      navigate("/checkout");
+      return;
+    }
+    if (val === "regular") {
+      if (currentMode !== "regular" && currentMode !== "ocr") onModeChange("regular");
+      return;
+    }
+    if (isModeInBans(bans, val)) return;
+    onModeChange(val);
+  };
 
   const deleteSession = async (session_id) => {
     try {
@@ -142,6 +208,8 @@ function Sidebar({
   };
 const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 const [deleting, setDeleting] = useState(false);
+const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+const [loggingOut, setLoggingOut] = useState(false);
 const [settingsOpen, setSettingsOpen] = useState(false);
 const [profileOpen, setProfileOpen] = useState(false);
 const [modelNames, setModelNames] = useState({ mistral: "Mistral", gemini: "Gemini" });
@@ -161,8 +229,13 @@ useEffect(() => {
         <button
           className={`btn new-btn ${theme}-theme`}
           onClick={onNewSession}
+          disabled={pendingAction?.type === "new"}
+          aria-busy={pendingAction?.type === "new"}
         >
-          <span className="plus">+</span> New Chat
+          {pendingAction?.type === "new"
+            ? <span className="ui-spinner" aria-hidden="true" />
+            : <span className="plus">+</span>}
+          {pendingAction?.type === "new" ? "Creating…" : "New Chat"}
         </button>
 
         
@@ -175,41 +248,70 @@ useEffect(() => {
     Mode:
   </label>
 
-  {/* Top-level category: Regular encompasses both Mistral and Gemini models */}
-  <select
-    id="mode"
-    value={(currentMode === "regular" || currentMode === "ocr") ? "regular" : currentMode}
-    onChange={(e) => {
-      const val = e.target.value;
-      if (PREMIUM_MODES.has(val) && !isPremium) {
-        navigate("/checkout");
-        return;
-      }
-      if (val === "regular") {
-        // Switching into Regular category — default to Mistral unless already in it
-        if (currentMode !== "regular" && currentMode !== "ocr") {
-          onModeChange("regular");
-        }
-        return;
-      }
-      if (isModeInBans(bans, val)) return;
-      onModeChange(val);
-    }}
-    className={`mode-select ${theme}-theme`}
-  >
-    <option
-      value="regular"
-      disabled={isModeInBans(bans, "regular") && isModeInBans(bans, "ocr")}
+  {/* A custom menu gives each mode a consistently sized vector icon. */}
+  <div className={`mode-picker ${theme}-theme`} ref={modeMenuRef}>
+    <button
+      id="mode"
+      ref={modeTriggerRef}
+      type="button"
+      className="mode-picker-trigger"
+      aria-haspopup="menu"
+      aria-expanded={modeMenuOpen}
+      aria-label="Select chat mode"
+      onClick={() => setModeMenuOpen((open) => !open)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setModeMenuOpen(false);
+      }}
     >
-      {(isModeInBans(bans, "regular") && isModeInBans(bans, "ocr")) ? "⛔" : "🤖"} Regular
-    </option>
-    <option value="uncensored" disabled={isModeInBans(bans, "uncensored")}>
-      {isModeInBans(bans, "uncensored") ? "⛔" : "🔥"} Uncensored
-    </option>
-    <option value="multi_debugger" disabled={isModeInBans(bans, "multi_debugger")}>
-      {isModeInBans(bans, "multi_debugger") ? "⛔" : "🔍"} Multi-Debugger
-    </option>
-  </select>
+      <span className="mode-picker-current">
+        {pendingAction?.type === "mode"
+          ? <span className="ui-spinner" aria-hidden="true" />
+          : <SidebarIcon name={(currentMode === "regular" || currentMode === "ocr") ? "regular" : currentMode} />}
+        <span>{pendingAction?.type === "mode" ? "Switching…" : currentMode === "uncensored" ? "Uncensored" : currentMode === "multi_debugger" ? "Multi-Debugger" : "Regular"}</span>
+      </span>
+      <svg className="mode-picker-chevron" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+    {modeMenuOpen && (
+      <div
+        className="mode-picker-menu"
+        role="menu"
+        aria-labelledby="mode"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setModeMenuOpen(false);
+            modeTriggerRef.current?.focus();
+          }
+        }}
+      >
+        {[
+          { value: "regular", label: "Regular", disabled: isModeInBans(bans, "regular") && isModeInBans(bans, "ocr") },
+          { value: "uncensored", label: "Uncensored", disabled: isModeInBans(bans, "uncensored") },
+          { value: "multi_debugger", label: "Multi-Debugger", disabled: isModeInBans(bans, "multi_debugger") },
+        ].map((option) => {
+          const selected = option.value === "regular"
+            ? currentMode === "regular" || currentMode === "ocr"
+            : currentMode === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="menuitemradio"
+              aria-checked={selected}
+              disabled={option.disabled || pendingAction?.type === "mode"}
+              className={`mode-picker-option ${selected ? "selected" : ""}`}
+              onClick={() => selectMode(option.value)}
+            >
+              {option.disabled ? <span className="mode-picker-blocked" aria-hidden="true">⛔</span> : <SidebarIcon name={option.value} />}
+              <span>{option.label}</span>
+              {selected && <span className="mode-picker-check" aria-hidden="true">✓</span>}
+            </button>
+          );
+        })}
+      </div>
+    )}
+  </div>
 
   {/* Model sub-picker — only visible inside the Regular category */}
   {(currentMode === "regular" || currentMode === "ocr") && (
@@ -221,6 +323,7 @@ useEffect(() => {
         if (isModeInBans(bans, val)) return;
         onModeChange(val);
       }}
+      disabled={pendingAction?.type === "mode"}
       className={`model-select ${theme}-theme`}
       aria-label="Model"
     >
@@ -237,11 +340,11 @@ useEffect(() => {
   <div className="icon-row">
     <button
       className={`icon-btn logout-icon ${theme}-theme`}
-      onClick={handleLogout}
+      onClick={() => setLogoutConfirmOpen(true)}
       title="Logout"
       aria-label="Logout"
     >
-      ⏻
+      <SidebarIcon name="logout" />
     </button>
 
     <button
@@ -250,7 +353,7 @@ useEffect(() => {
       title="Settings"
       aria-label="Settings"
     >
-      ⚙️
+      <SidebarIcon name="settings" />
     </button>
   </div>
 </div>
@@ -281,11 +384,14 @@ useEffect(() => {
               key={s.session_id}
               className={`session-item ${
                 currentSession === s.session_id ? "active" : ""
-              } ${theme}-theme`}
+              } ${theme}-theme ${pendingAction?.sessionId === s.session_id ? "is-loading" : ""}`}
+              aria-busy={pendingAction?.sessionId === s.session_id}
                onClick={() => onSessionSelect?.(s.session_id, s.mode)}
               title={displayedTitle}
             >
-               <span className="session-icon">{/* emoji */}</span>
+               {pendingAction?.sessionId === s.session_id
+                 ? <span className="ui-spinner session-loading-spinner" aria-label="Opening chat" />
+                 : <span className="session-icon">{/* emoji */}</span>}
 
   {/* 👇 this wrapper applies ellipsis */}
   <div className="session-title">
@@ -347,14 +453,17 @@ useEffect(() => {
           </li>
         )}
       </ul>
-      {settingsOpen && (
-  <div className="settings-overlay" onClick={() => setSettingsOpen(false)}>
+      {settingsOpen && createPortal(
+  <div className={`settings-overlay ${theme}-theme`} onClick={() => setSettingsOpen(false)}>
     <div
-      className="settings-panel"
+      className={`settings-panel ${theme}-theme`}
       onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-title"
     >
       <header className="settings-header">
-        <h3>Settings</h3>
+        <h3 id="settings-title">Settings</h3>
         <button
           className="icon-btn"
           onClick={() => setSettingsOpen(false)}
@@ -363,6 +472,35 @@ useEffect(() => {
           ✕
         </button>
       </header>
+
+      <section className="settings-section typing-settings">
+        <h4>Response animation</h4>
+        <div className="typing-style-options" role="radiogroup" aria-label="Response animation">
+          {TYPING_INDICATOR_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={typingAnimation === option.value}
+              className={`typing-style-option${typingAnimation === option.value ? " is-selected" : ""}`}
+              onClick={() => setTypingAnimation(option.value)}
+            >
+              <TypingIndicator variant={option.value} />
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <h4>Explore</h4>
+        <button
+          className="settings-item"
+          onClick={() => { setSettingsOpen(false); navigate("/about"); }}
+        >
+          ✦ About AI ChatBox
+        </button>
+      </section>
 
       <section className="settings-section">
         <h4>Account</h4>
@@ -395,7 +533,8 @@ useEffect(() => {
         </button>
       </section>
     </div>
-  </div>
+  </div>,
+  document.body
 )}
 {confirmDeleteOpen && (
   <div
@@ -448,6 +587,44 @@ useEffect(() => {
   </div>
 )}
 
+{logoutConfirmOpen && createPortal(
+  <div
+    className={`confirm-overlay ${theme}-theme`}
+    onClick={() => !loggingOut && setLogoutConfirmOpen(false)}
+  >
+    <div
+      className={`confirm-modal ${theme}-theme`}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="logout-confirm-title"
+      aria-describedby="logout-confirm-description"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <h3 id="logout-confirm-title">Log out?</h3>
+      <p id="logout-confirm-description">Are you sure you want to log out of your account?</p>
+      <div className="confirm-actions">
+        <button
+          className="btn"
+          type="button"
+          disabled={loggingOut}
+          onClick={() => setLogoutConfirmOpen(false)}
+        >
+          Cancel
+        </button>
+        <button
+          className="btn danger"
+          type="button"
+          disabled={loggingOut}
+          onClick={handleLogout}
+        >
+          {loggingOut ? "Logging out…" : "Log out"}
+        </button>
+      </div>
+    </div>
+  </div>,
+  document.body
+)}
+
 <ProfileModal
   isOpen={profileOpen}
   onClose={() => setProfileOpen(false)}
@@ -460,4 +637,3 @@ useEffect(() => {
 }
 
 export default Sidebar;
-

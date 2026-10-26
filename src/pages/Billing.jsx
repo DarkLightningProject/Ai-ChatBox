@@ -29,7 +29,7 @@ export default function Billing() {
       <div className="billing-page">
         <div className="billing-card">
           <p className="billing-error">{error}</p>
-          <Link to="/" className="result-action-btn secondary">Back to App</Link>
+          <Link to="/app" className="result-action-btn secondary">Back to App</Link>
         </div>
       </div>
     );
@@ -48,7 +48,7 @@ export default function Billing() {
     return (
       <div className="billing-page">
         <div className="billing-card">
-          <Link to="/" className="billing-back">← Back to App</Link>
+          <Link to="/app" className="billing-back">← Back to App</Link>
 
           <div className="billing-header">
             <span className="billing-badge paid">✓ Paid</span>
@@ -87,10 +87,10 @@ export default function Billing() {
             <h4>What you unlocked</h4>
             <ul>
               <li>⭐ Multi-Debugger Premium tier</li>
-              <li>🔬 Logic Analyst — Gemini 2.5 Pro</li>
-              <li>🛠️ Syntax Inspector — GPT-4.1</li>
-              <li>⚡ Perf &amp; Security — Claude Opus 4.5</li>
-              <li>🧠 Synthesizer — Claude Sonnet 4.5</li>
+              <li>🔬 Logic Analyst — Gemini 4 Argon</li>
+              <li>🛠️ Syntax &amp; Runtime Inspector — GPT-5.4</li>
+              <li>⚡ Perf &amp; Security — Claude Opus 4.7</li>
+              <li>🧠 Synthesizer — Claude Sonnet 4.6</li>
             </ul>
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function Billing() {
     return (
       <div className="billing-page">
         <div className="billing-card">
-          <Link to="/" className="billing-back">← Back to App</Link>
+          <Link to="/app" className="billing-back">← Back to App</Link>
 
           <div className="billing-header">
             <span className="billing-badge special">✦ Special Access</span>
@@ -126,10 +126,10 @@ export default function Billing() {
             <h4>What you have access to</h4>
             <ul>
               <li>⭐ Multi-Debugger Premium tier</li>
-              <li>🔬 Logic Analyst — Gemini 2.5 Pro</li>
-              <li>🛠️ Syntax Inspector — GPT-4.1</li>
-              <li>⚡ Perf &amp; Security — Claude Opus 4.5</li>
-              <li>🧠 Synthesizer — Claude Sonnet 4.5</li>
+              <li>🔬 Logic Analyst — Gemini 4 Argon</li>
+              <li>🛠️ Syntax &amp; Runtime Inspector — GPT-5.4</li>
+              <li>⚡ Perf &amp; Security — Claude Opus 4.7</li>
+              <li>🧠 Synthesizer — Claude Sonnet 4.6</li>
             </ul>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function Billing() {
   return (
     <div className="billing-page">
       <div className="billing-card">
-        <Link to="/" className="billing-back">← Back to App</Link>
+        <Link to="/app" className="billing-back">← Back to App</Link>
 
         <div className="billing-header">
           <span className="billing-badge free">Free Plan</span>
@@ -150,10 +150,10 @@ export default function Billing() {
         </div>
 
         <ul className="checkout-features" style={{ marginBottom: "1.5rem" }}>
-          <li><span className="icon">✓</span> Gemini 2.5 Pro for Logic Analysis</li>
-          <li><span className="icon">✓</span> GPT-4.1 for Syntax Inspection</li>
-          <li><span className="icon">✓</span> Claude Opus 4.5 for Perf &amp; Security</li>
-          <li><span className="icon">✓</span> Claude Sonnet 4.5 as Synthesizer</li>
+          <li><span className="icon">✓</span> Gemini 4 Argon for Logic Analysis</li>
+          <li><span className="icon">✓</span> GPT-5.4 for Syntax &amp; Runtime Inspection</li>
+          <li><span className="icon">✓</span> Claude Opus 4.7 for Performance &amp; Security</li>
+          <li><span className="icon">✓</span> Claude Sonnet 4.6 as Synthesizer</li>
           <li><span className="icon">✓</span> One-time payment — no subscription</li>
         </ul>
 
