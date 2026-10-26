@@ -68,13 +68,16 @@
 
 /* Message Bubbles */
 .bubble {
-  max-width: 85%;
+  width: fit-content;
+  max-width: min(85%, 760px);
   display: flex;
   align-items: flex-start;
   gap: 8px;
   animation: fadeIn 0.3s ease;
   align-self: flex-start;
   min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @keyframes fadeIn {
@@ -93,6 +96,13 @@
   transition: all 0.3s ease;
   flex: 1;
   min-width: 0;
+  max-width: 100%;
+  width: fit-content;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.bubble .bubble-inner > * {
   max-width: 100%;
 }
 
@@ -266,11 +276,26 @@
   color: white;
   border-color: transparent;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .bubble.bot .bubble-inner {
   background: var(--panel-2);
   white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.bubble-inner pre,
+.bubble-inner code,
+.bubble-inner table {
+  max-width: 100%;
+}
+
+.bubble-inner pre {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .typing {
