@@ -312,6 +312,19 @@ const handleNewSession = async () => {
           />
         )}
 
+        {isMobile && (
+          <button
+            type="button"
+            className={`mobile-menu-btn ${theme}-theme ${sidebarOpen ? "is-open" : ""}`}
+            aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-controls="app-sidebar"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen((open) => !open)}
+          >
+            {sidebarOpen ? "× Close" : "☰ Menu"}
+          </button>
+        )}
+
         <main className={`chat-pane ${theme}-theme`}>
           <ChatApp
             key={mode}
@@ -330,7 +343,6 @@ const handleNewSession = async () => {
             onSessionTitled={handleSessionTitled}
             onSessionCreated={handleSessionCreated}
             onHistoryLoading={handleHistoryLoading}
-            toggleSidebar={() => setSidebarOpen((o) => !o)}
             emailVerified={emailVerified}
           />
         </main>

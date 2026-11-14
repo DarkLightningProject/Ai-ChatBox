@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import ThemeToggle from "../Components/ThemeToggle";
+import api from "../api";
 import "./AboutPage.css";
 
 const technologies = [
@@ -32,13 +33,25 @@ const technologies = [
 ];
 
 export default function AboutPage({ theme = "light", onToggleTheme }) {
+  const [authStatus, setAuthStatus] = useState("loading");
+
   useEffect(() => {
+    let isMounted = true;
+    api.get("/api/auth/me/")
+      .then(() => {
+        if (isMounted) setAuthStatus("authenticated");
+      })
+      .catch(() => {
+        if (isMounted) setAuthStatus("anonymous");
+      });
+
     const root = document.documentElement;
     const body = document.body;
     root.classList.add("landing-page-scroll");
     body.classList.add("landing-page-scroll");
 
     return () => {
+      isMounted = false;
       root.classList.remove("landing-page-scroll");
       body.classList.remove("landing-page-scroll");
     };
@@ -53,8 +66,12 @@ export default function AboutPage({ theme = "light", onToggleTheme }) {
         </Link>
         <div className="about-nav-actions">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-          <Link className="about-login-link" to="/login"><span>Log in</span></Link>
-          <Link className="about-cta" to="/signup">Get started <span aria-hidden="true">↗</span></Link>
+          {authStatus === "anonymous" && (
+            <>
+              <Link className="about-login-link" to="/login"><span>Log in</span></Link>
+              <Link className="about-cta" to="/signup">Get started <span aria-hidden="true">↗</span></Link>
+            </>
+          )}
         </div>
       </nav>
 

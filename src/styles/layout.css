@@ -674,14 +674,20 @@ body {
     position: fixed;
     top: 10px;
     left: 10px;
-    z-index: 10;
+    z-index: 30;
     margin: 0;
+    min-height: 42px;
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--panel-2);
     border: 1px solid var(--border);
     color: var(--text);
     box-shadow: var(--shadow);
+  }
+
+  .mobile-menu-btn.is-open {
+    left: min(226px, calc(88vw - 92px));
+    right: auto;
   }
 }
 
@@ -1380,9 +1386,15 @@ body {
     border-radius: 0 22px 22px 0;
   }
 
-  .chat-wrap.light-theme .mobile-menu-btn {
+  .mobile-menu-btn.light-theme {
     border-color: rgba(124, 91, 176, .18);
     color: #563d7a;
-    background: rgba(255, 255, 255, .92);
+    background: rgba(255, 255, 255, .96);
+  }
+
+  .mobile-menu-btn.dark-theme {
+    border-color: rgba(198, 165, 255, .2);
+    color: #f7f6ff;
+    background: rgba(21, 21, 31, .96);
   }
 }

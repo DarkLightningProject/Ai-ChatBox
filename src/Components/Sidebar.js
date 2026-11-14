@@ -224,7 +224,7 @@ useEffect(() => {
 
 
   return (
-    <aside className={`sidebar ${theme}-theme`}>
+    <aside id="app-sidebar" className={`sidebar ${theme}-theme`}>
       <div className="sidebar-top">
         <button
           className={`btn new-btn ${theme}-theme`}

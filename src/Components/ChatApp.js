@@ -253,7 +253,7 @@ function getActiveBan(bans, mode, tier) {
   return null;
 }
 
-export default function ChatApp({ sessionId, fallbackSessionId, mode, setSessionId, theme, typingAnimation = "sparkle", isPremium = false, bans, onBanDetected, onSessionTitled, onSessionCreated, onHistoryLoading, toggleSidebar, emailVerified = true }) {
+export default function ChatApp({ sessionId, fallbackSessionId, mode, setSessionId, theme, typingAnimation = "sparkle", isPremium = false, bans, onBanDetected, onSessionTitled, onSessionCreated, onHistoryLoading, emailVerified = true }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -963,15 +963,6 @@ setMessages((prev) => {
   return (
 
     <div className={`chat-wrap ${theme}-theme`} aria-busy={loading}>
-        {/* Mobile Menu Button (scrolls with content) */}
-        
-      <button
-        className="mobile-menu-btn"
-        onClick={() => toggleSidebar?.()}
-      >
-        ☰ Menu
-      </button>
-
       <header className="chat-header">
         <div className="chat-pill">
           {mode === "uncensored"

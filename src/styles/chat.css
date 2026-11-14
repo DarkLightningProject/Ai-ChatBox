@@ -1350,7 +1350,32 @@
 @media (max-width: 640px) {
   .chat-wrap .chat-header {
     min-height: 58px;
+    flex-wrap: wrap;
+    row-gap: 8px;
     padding: 10px 14px 8px 92px;
+  }
+
+  .chat-wrap .chat-pill,
+  .chat-wrap .tier-toggle {
+    max-width: 100%;
+  }
+
+  .agent-panel__header {
+    flex-wrap: wrap;
+    padding-inline: 10px;
+  }
+
+  .agent-panel__name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .agent-panel__model {
+    max-width: 42%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
   }
 
   .chat-wrap .chat-history {
@@ -1386,6 +1411,13 @@
   .chat-wrap .welcome-message {
     padding: 26px 19px;
     border-radius: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .chat-wrap .tier-btn {
+    padding-inline: 9px;
+    font-size: 11px;
   }
 }
 

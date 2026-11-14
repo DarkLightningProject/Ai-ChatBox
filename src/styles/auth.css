@@ -705,7 +705,17 @@ text-align: center;
 }
 
 @media (max-width: 650px) {
-  .auth-page { min-height: 100svh; padding: 88px 18px 30px; align-items: flex-start; }
+  .auth-page {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100vh;
+    min-height: 100svh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    padding: 88px 18px max(30px, env(safe-area-inset-bottom));
+    align-items: flex-start;
+  }
   .auth-home-link { top: 21px; left: 19px; }
   .auth-page > .public-theme-toggle { top: 18px; right: 19px; }
   .auth-layout { width: min(100%, 440px); min-height: 0; display: flex; flex-direction: column; gap: 27px; }

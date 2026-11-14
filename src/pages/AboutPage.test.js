@@ -1,5 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import AboutPage from "./AboutPage";
+import api from "../api";
+
+jest.mock("../api", () => ({
+  __esModule: true,
+  default: { get: jest.fn() },
+}));
 
 jest.mock(
   "react-router-dom",
@@ -10,7 +16,12 @@ jest.mock(
   { virtual: true }
 );
 
-test("explains the prototype technology stack and navigation", () => {
+beforeEach(() => {
+  api.get.mockReset().mockRejectedValue(new Error("Not authenticated"));
+});
+
+test("explains the prototype technology stack and navigation", async () => {
+  api.get.mockRejectedValue(new Error("Not authenticated"));
   render(<AboutPage theme="light" />);
 
   expect(screen.getByRole("heading", { name: /curiosity deserves a good conversation/i })).toBeInTheDocument();
@@ -32,11 +43,26 @@ test("explains the prototype technology stack and navigation", () => {
     "href",
     "mailto:eclipsexautomationsolution@gmail.com"
   );
-  expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/signup");
-  expect(screen.getByRole("link", { name: /back to home/i })).toHaveAttribute("href", "/");
+  await waitFor(() => {
+    expect(screen.getByRole("link", { name: /log in/i })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/signup");
+  });
+});
+
+test("hides login and signup links when the user is authenticated", async () => {
+  api.get.mockResolvedValue({ data: { user_id: 1 } });
+
+  render(<AboutPage theme="light" />);
+
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith("/api/auth/me/");
+    expect(screen.queryByRole("link", { name: /log in/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /get started/i })).not.toBeInTheDocument();
+  });
 });
 
 test("enables page scrolling only while About is mounted", () => {
+  api.get.mockReturnValue(new Promise(() => {}));
   const { unmount } = render(<AboutPage />);
 
   expect(document.documentElement).toHaveClass("landing-page-scroll");
