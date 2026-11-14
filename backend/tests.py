@@ -1,8 +1,59 @@
+from unittest.mock import patch
+
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, override_settings
+from backend.views import database_check
 
 from backend.middleware import AdminSessionCookieMiddleware
+
+
+class DatabaseCheckTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_database_check_requires_configured_token(self):
+        request = self.factory.get("/api/database-check/")
+
+        with patch("backend.views.os.getenv", return_value=None):
+            response = database_check(request)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_database_check_requires_matching_token(self):
+        request = self.factory.get(
+            "/api/database-check/",
+            HTTP_X_DIAGNOSTIC_TOKEN="wrong-token",
+        )
+
+        with patch("backend.views.os.getenv", return_value="expected-token"):
+            response = database_check(request)
+
+        self.assertEqual(response.status_code, 404)
+
+    @patch("backend.views.connection")
+    def test_database_check_reports_postgres_connection(self, mocked_connection):
+        mocked_connection.vendor = "postgresql"
+        cursor = mocked_connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (
+            "neon_db",
+            "app_user",
+            "public",
+            '"$user", public',
+            "cache_table",
+            "cache_table",
+        )
+        request = self.factory.get(
+            "/api/database-check/",
+            HTTP_X_DIAGNOSTIC_TOKEN="expected-token",
+        )
+
+        with patch("backend.views.os.getenv", return_value="expected-token"):
+            response = database_check(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["database"], "neon_db")
+        self.assertEqual(response.json()["public_cache_table"], "cache_table")
 
 
 @override_settings(
