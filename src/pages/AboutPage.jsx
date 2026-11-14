@@ -33,7 +33,10 @@ const technologies = [
 ];
 
 export default function AboutPage({ theme = "light", onToggleTheme }) {
-  const [authStatus, setAuthStatus] = useState("loading");
+  const [authStatus, setAuthStatus] = useState(() =>
+    localStorage.getItem("user") ? "authenticated" : "loading"
+  );
+  const homePath = authStatus === "authenticated" ? "/app" : "/";
 
   useEffect(() => {
     let isMounted = true;
@@ -42,7 +45,10 @@ export default function AboutPage({ theme = "light", onToggleTheme }) {
         if (isMounted) setAuthStatus("authenticated");
       })
       .catch(() => {
-        if (isMounted) setAuthStatus("anonymous");
+        if (isMounted) {
+          localStorage.removeItem("user");
+          setAuthStatus("anonymous");
+        }
       });
 
     const root = document.documentElement;
@@ -60,7 +66,11 @@ export default function AboutPage({ theme = "light", onToggleTheme }) {
   return (
     <main className={`about-page ${theme}-theme`}>
       <nav className="about-nav" aria-label="About page navigation">
-        <Link className="about-brand" to="/" aria-label="conversa Ai home">
+        <Link
+          className="about-brand"
+          to={homePath}
+          aria-label={authStatus === "authenticated" ? "conversa Ai app" : "conversa Ai home"}
+        >
           <span className="about-brand-mark" aria-hidden="true">✳</span>
           <span>conversa Ai</span>
         </Link>
@@ -111,7 +121,9 @@ export default function AboutPage({ theme = "light", onToggleTheme }) {
         <div className="about-footer-links">
           <span>Contact us at</span>
           <a href="mailto:eclipsexautomationsolution@gmail.com">eclipsexautomationsolution@gmail.com</a>
-          <Link to="/">Back to home</Link>
+          <Link to={homePath}>
+            {authStatus === "authenticated" ? "Back to chat" : "Back to home"}
+          </Link>
         </div>
       </footer>
     </main>

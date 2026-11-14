@@ -17,6 +17,7 @@ jest.mock(
 );
 
 beforeEach(() => {
+  localStorage.removeItem("user");
   api.get.mockReset().mockRejectedValue(new Error("Not authenticated"));
 });
 
@@ -46,6 +47,8 @@ test("explains the prototype technology stack and navigation", async () => {
   await waitFor(() => {
     expect(screen.getByRole("link", { name: /log in/i })).toHaveAttribute("href", "/login");
     expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/signup");
+    expect(screen.getByRole("link", { name: /back to home/i })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /conversa ai home/i })).toHaveAttribute("href", "/");
   });
 });
 
@@ -58,6 +61,8 @@ test("hides login and signup links when the user is authenticated", async () => 
     expect(api.get).toHaveBeenCalledWith("/api/auth/me/");
     expect(screen.queryByRole("link", { name: /log in/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /get started/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /back to chat/i })).toHaveAttribute("href", "/app");
+    expect(screen.getByRole("link", { name: /conversa ai app/i })).toHaveAttribute("href", "/app");
   });
 });
 
