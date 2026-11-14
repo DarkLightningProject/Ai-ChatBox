@@ -3,11 +3,9 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
-from .views import database_check
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/database-check/", database_check),
     path("api/", include("chat.urls")),
     path("api/auth/", include("accounts.urls")),
     path("api/payments/", include("payments.urls")),
